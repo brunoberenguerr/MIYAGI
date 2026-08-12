@@ -1,0 +1,11 @@
+# Ambiente Python
+.venv/
+__pycache__/
+*.pyc
+
+# Resultados gerados pelo backtest (regeneráveis: rode backtest_miyagi.py)
+resultados/*.csv
+
+# Sistema
+.DS_Store
+Thumbs.db
