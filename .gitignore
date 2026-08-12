@@ -9,3 +9,6 @@ resultados/*.csv
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Edital da organizadora — material de terceiros, nao redistribuir
+docs/Diretrizes_Relatorio_Final*.pdf
