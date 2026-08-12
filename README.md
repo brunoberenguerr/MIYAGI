@@ -156,6 +156,74 @@ pelo desempenho no backtest é exatamente o overfitting que o funil de correlaç
 (feito ex-ante, por critério estatístico) foi desenhado para evitar. Fica como
 diagnóstico, não como decisão.
 
+### Por que não há divisão treino/teste
+
+`python analise_periodos.py`
+
+Dividir em treino/teste serve para quando o modelo **aprende** algo dos dados —
+você separa um pedaço que ele nunca viu para checar se aprendeu ou decorou.
+
+**O Miyagi não aprende nada dos dados.** Sinal 12-1, janela de 60 dias, alvo de
+10%, teto de 3× e os 8 ativos vieram todos de fora: da literatura ou de um funil
+de correlação feito ex-ante. Nenhum foi escolhido olhando retorno. Nesse sentido,
+**os 21,5 anos inteiros já são out-of-sample** — não existe pedaço contaminado
+por ajuste porque não houve ajuste.
+
+(Era diferente no MARÉ: lá havia parâmetros calibrados, então o design/holdout
+era obrigatório.)
+
+Ainda assim, a divisão foi feita — não como treino/teste, mas como antes/depois:
+
+| divisão | período | Sharpe | t-stat | IC 95% |
+|---|---|---|---|---|
+| tudo | 2005–2026 | 0,41 | 1,88 | [−0,02 , 0,83] |
+| antes | 2005–2016 | 0,61 | 2,10 | [0,04 , 1,18] |
+| depois | 2017–2026 | 0,16 | 0,50 | [−0,47 , 0,80] |
+
+**O intervalo de confiança do período inteiro inclui o zero.** Com t = 1,88, o
+resultado está no limite da significância — 21 anos ainda é amostra curta para
+medir um Sharpe pequeno. Isso é limitação honesta do trabalho, não defeito do
+código.
+
+### Hipótese testada e REFUTADA: decaimento pós-publicação
+
+A explicação natural para a queda seria o efeito documentado por McLean & Pontiff
+(2016): anomalias publicadas perdem retorno quando o capital entra e as arbitra.
+Moskowitz et al. publicaram em 2012. Se a hipótese valesse, a quebra estaria lá.
+
+| período | Sharpe |
+|---|---|
+| 2005–2011 (pré-publicação) | 0,35 |
+| 2012–2026 (pós-publicação) | **0,43** |
+
+**O pós-publicação foi melhor.** A hipótese não se sustenta — a quebra não está
+em 2012, está por volta de 2016.
+
+### A causa mecânica: as tendências encurtaram 40%
+
+| período | trocas de direção/ano | duração média da tendência |
+|---|---|---|
+| 2005–2010 | 8,3 | **11,5 meses** |
+| 2011–2015 | 11,0 | 8,7 meses |
+| 2016–2020 | 14,0 | **6,9 meses** |
+| 2021–2026 | 12,7 | 7,5 meses |
+
+Esta é a explicação econômica, e ela é coerente: o sinal olha 12 meses para trás.
+Quando as tendências duravam ~11,5 meses, o sinal chegava a tempo. Quando passaram
+a durar ~7, o robô entra sistematicamente atrasado — a tendência já virou quando
+ele se posiciona. É o "chicote", medido.
+
+A queda é ampla, não concentrada num ativo (contribuição anualizada das posições):
+
+| | 2005–2015 | 2016–2026 | Δ |
+|---|---|---|---|
+| Ibovespa | +0,7% | −1,6% | −2,3% |
+| Commodities | +1,2% | −1,1% | −2,2% |
+| Ouro | +2,5% | +1,3% | −1,3% |
+| USD/BRL | +1,0% | −0,1% | −1,1% |
+| S&P 500 | +2,5% | +2,7% | +0,2% |
+| **total** | **+9,8%** | **+2,3%** | **−7,5%** |
+
 ### O que os testes B e F dizem a favor do trabalho
 
 A configuração base **não é a melhor** em duas dimensões testadas:
