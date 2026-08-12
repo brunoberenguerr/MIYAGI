@@ -106,6 +106,69 @@ relatório como está. Duas razões plausíveis: o CDI brasileiro é um piso alt
 taxa americana dos artigos), e o universo de 8 ativos é pequeno frente aos
 50-60 dos estudos originais.
 
+---
+
+## Testes de robustez — 4 de 6 aprovados
+
+`python robustez.py`. Seis testes com **critérios declarados antes da execução**,
+para que não fosse possível olhar o resultado e inventar o critério que ele
+satisfaz. A configuração base não mudou em função de nenhum deles.
+
+| # | teste | critério declarado | resultado |
+|---|---|---|---|
+| A | Custos | superar o CDI com o dobro do custo | **aprovado** — break-even em ~0,5%/trade (5× o assumido) |
+| B | Janela de volatilidade | Sharpe ≥ 0,25 de 20 a 250 dias | **aprovado** — mínimo 0,36 |
+| C | Sub-períodos | superar o CDI em 3 dos 4 blocos | **REPROVADO** — 2 de 4 |
+| D | Teto de alavancagem | com teto 2×, superar o CDI | **aprovado** — 14,3% vs 10,7% |
+| E | Jackknife de ativos | Sharpe ≥ 0,25 retirando qualquer um | **REPROVADO** — sem SPY cai para 0,19 |
+| F | Horizonte do sinal | positivo em 3 dos 4 horizontes | **aprovado** — 4 de 4 |
+
+### C — a reprovação que mais importa
+
+| período | CAGR | Sharpe | CDI | superou? |
+|---|---|---|---|---|
+| 2005–2010 | 16,2% | 0,32 | 12,9% | sim |
+| 2011–2015 | 27,7% | **1,40** | 10,4% | sim |
+| **2016–2020** | 6,7% | −0,04 | 7,8% | **não** |
+| **2021–2026** | 11,0% | 0,03 | 11,3% | **não** |
+
+**Os 21 anos de resultado são carregados por 2005–2015 — em particular pelo
+bloco 2011–2015, com Sharpe 1,40. Depois de 2016 a estratégia não supera o CDI.**
+
+Isso precisa estar no relatório com esse destaque. Duas leituras possíveis, e a
+honesta é dizer que não sabemos separá-las com os dados que temos:
+
+1. **Fenômeno conhecido:** a década de 2010 foi documentadamente difícil para
+   trend following (volatilidade baixa, intervenção de bancos centrais,
+   reversões frequentes). Não seria uma anomalia nossa.
+2. **Fim do edge:** o prêmio de momentum pode ter sido arbitrado conforme o
+   capital em managed futures cresceu.
+
+### E — dependência do SPY
+
+Retirar o SPY derruba o Sharpe de 0,41 para 0,19. A tese do trabalho é
+diversificação com 8 apostas pouco correlacionadas, e o resultado depende mais
+de um ativo do que essa tese sugeriria.
+
+Nota: retirar EUR/USD **melhora** o Sharpe para 0,57, e retirar o Ibovespa
+melhora para 0,52. **Isso não é um convite para removê-los.** Escolher os ativos
+pelo desempenho no backtest é exatamente o overfitting que o funil de correlação
+(feito ex-ante, por critério estatístico) foi desenhado para evitar. Fica como
+diagnóstico, não como decisão.
+
+### O que os testes B e F dizem a favor do trabalho
+
+A configuração base **não é a melhor** em duas dimensões testadas:
+
+- janela de volatilidade: 250 dias dá Sharpe 0,50 contra os 0,41 dos 60 dias;
+- horizonte do sinal: 18-1 dá 0,73 e 9-1 dá 0,69, contra os 0,41 do 12-1.
+
+Isso é evidência forte de que **não houve garimpo de parâmetro**: quem escolhe
+parâmetros olhando o resultado não termina com a terceira melhor opção de quatro.
+Os valores vieram da literatura e ficaram como estavam.
+
+---
+
 ### O que o backtest NÃO prova
 
 - **Não há garantia de que funcione daqui pra frente.** Trend following passou
