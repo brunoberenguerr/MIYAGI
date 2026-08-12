@@ -89,6 +89,26 @@ PULA_MESES = 1            # fonte: Moskowitz et al. (2012)
 # ser naturalmente mais nervoso.
 JANELA_VOL_DIAS = 60      # fonte: convenção da literatura de trend following
 
+# COMO medir essa volatilidade — a especificação do projeto permite duas formas:
+#
+#   "janela"  todos os últimos 60 dias contam IGUAL, e o dia 61 some de vez.
+#             Simples, mas tem o "efeito penhasco": quando um dia de pânico
+#             sai da janela, a volatilidade medida despenca de um dia para o
+#             outro — não porque o mercado acalmou, mas porque um número saiu
+#             de uma planilha. O robô então se alavanca de novo, possivelmente
+#             no meio da crise.
+#
+#   "ewma"    a memória DESBOTA aos poucos: ontem pesa 100%, 10 dias atrás
+#             pesa 54%, 30 dias atrás pesa 16%. Nada é esquecido de repente.
+#             (EWMA = média móvel exponencialmente ponderada.)
+#
+# As duas estavam previstas na especificação. Trocar entre elas para investigar
+# uma divergência é diagnóstico; trocar para melhorar o resultado seria
+# overfitting. A distinção está no motivo, e ele está registrado aqui.
+ESTIMADOR_VOL = "ewma"    # "ewma" | "janela"
+LAMBDA_EWMA = 0.94        # fonte: RiskMetrics (JP Morgan). Meia-vida ~11 dias.
+JANELA_EWMA_DIAS = 252    # até onde olhar (após isso o peso é desprezível)
+
 # --- A defesa ------------------------------------------------------------
 # A carteira inteira é escalada para ter uma "velocidade de risco" fixa de
 # 10% ao ano. É como o piloto automático de um carro: acelera na subida,
@@ -260,19 +280,76 @@ def calcular_sinal(precos: pd.DataFrame, data: pd.Timestamp) -> pd.Series:
 # decoração. Dividindo pela volatilidade, cada ativo passa a contribuir com
 # uma dose parecida de risco — e a diversificação realmente funciona.
 
-def calcular_volatilidade(retornos: pd.DataFrame, data: pd.Timestamp) -> pd.Series:
-    """Mede o quanto cada ativo balançou nos últimos 60 pregões (anualizado).
+def matriz_covariancia(retornos: pd.DataFrame, data: pd.Timestamp,
+                       estimador: str | None = None) -> pd.DataFrame:
+    """O 'mapa de risco' do momento: quanto cada ativo balança E quanto os
+    pares andam juntos.
+
+    Tudo que o robô sabe sobre risco sai daqui — tanto a volatilidade de cada
+    ativo (a diagonal desta matriz) quanto a da carteira combinada. Ter uma
+    fonte única evita a incoerência de medir cada coisa de um jeito.
+
+    Os dois estimadores diferem SÓ no peso que cada dia recebe:
+      "janela" -> os últimos 60 dias pesam igual; o dia 61 vale zero.
+      "ewma"   -> o peso decai suavemente (ontem vale mais que anteontem).
+    """
+    estimador = estimador or ESTIMADOR_VOL
+
+    if estimador == "janela":
+        janela = retornos.loc[:data].tail(JANELA_VOL_DIAS)
+    elif estimador == "ewma":
+        janela = retornos.loc[:data].tail(JANELA_EWMA_DIAS)
+    else:
+        raise ValueError(f"estimador desconhecido: {estimador}")
+
+    # Descarta ativos que ainda não existiam; trata feriado pontual como
+    # "não houve movimento" (que é o correto para um mercado fechado).
+    janela = janela.dropna(axis=1, how="all").fillna(0.0)
+    if len(janela) < 20:          # amostra pequena demais para ser confiável
+        return pd.DataFrame()
+
+    if estimador == "janela":
+        return janela.cov()
+
+    # --- EWMA -----------------------------------------------------------
+    # Cada dia recebe um peso: o mais recente vale 1, e cada dia anterior
+    # vale LAMBDA (0,94) vezes o seguinte. Depois normalizamos para somarem 1.
+    #
+    #   ontem        -> 0.94^0  = 1.00  (100%)
+    #   10 dias atrás -> 0.94^10 = 0.54  ( 54%)
+    #   30 dias atrás -> 0.94^30 = 0.16  ( 16%)
+    #
+    # É esse decaimento suave que elimina o "efeito penhasco" da janela fixa.
+    n = len(janela)
+    idade = np.arange(n - 1, -1, -1)       # linha mais recente tem idade 0
+    pesos_tempo = LAMBDA_EWMA ** idade
+    pesos_tempo = pesos_tempo / pesos_tempo.sum()
+
+    X = janela.to_numpy()
+    # Convenção RiskMetrics: assume-se média zero (para horizontes curtos o
+    # retorno médio diário é desprezível perto da oscilação).
+    cov = (X * pesos_tempo[:, None]).T @ X
+    return pd.DataFrame(cov, index=janela.columns, columns=janela.columns)
+
+
+def calcular_volatilidade(retornos: pd.DataFrame, data: pd.Timestamp,
+                          estimador: str | None = None) -> pd.Series:
+    """O quanto cada ativo balança, em % ao ano.
 
     Volatilidade = desvio-padrão dos retornos diários. Traduzindo: se os
-    retornos diários variam pouco em torno da média, a volatilidade é baixa
-    (ativo calmo); se variam muito, é alta (ativo nervoso).
+    retornos variam pouco em torno da média, a volatilidade é baixa (ativo
+    calmo); se variam muito, é alta (ativo nervoso).
+
+    Sai da diagonal da matriz de covariância: a "covariância de um ativo com
+    ele mesmo" é exatamente a variância dele, e a raiz disso é a volatilidade.
 
     Multiplicamos por raiz de 252 para converter de "por dia" para "por ano" —
-    é a convenção de mercado, e serve para o número ficar comparável com o
-    nosso alvo de 10% ao ano.
+    convenção de mercado, e deixa o número comparável com o alvo de 10% a.a.
     """
-    janela = retornos.loc[:data].tail(JANELA_VOL_DIAS)
-    return janela.std() * np.sqrt(DIAS_UTEIS_ANO)
+    cov = matriz_covariancia(retornos, data, estimador)
+    if cov.empty:
+        return pd.Series(dtype=float)
+    return pd.Series(np.sqrt(np.diag(cov)), index=cov.index) * np.sqrt(DIAS_UTEIS_ANO)
 
 
 def calcular_pesos_brutos(sinal: pd.Series, vol: pd.Series) -> pd.Series:
@@ -317,30 +394,29 @@ def calcular_pesos_brutos(sinal: pd.Series, vol: pd.Series) -> pd.Series:
 # chegou a -60%: quando o mercado enlouquece, o robô automaticamente encolhe.
 
 def volatilidade_da_carteira(retornos: pd.DataFrame, pesos: pd.Series,
-                             data: pd.Timestamp) -> float:
+                             data: pd.Timestamp,
+                             estimador: str | None = None) -> float:
     """Estima o quanto a carteira combinada deve balançar, em % ao ano.
 
     Não basta somar as volatilidades individuais: o que importa é como os
     ativos se movem EM CONJUNTO. Se um sobe quando o outro cai, eles se
-    cancelam e a carteira balança menos que suas partes.
+    cancelam e a carteira balança menos que suas partes — é literalmente
+    isto que a diversificação significa em números.
 
-    Quem captura isso é a matriz de covariância (o `.cov()` abaixo): ela
-    guarda, para cada par de ativos, o quanto eles costumam andar juntos.
-    A fórmula w'Σw é a maneira padrão de combinar pesos com essa matriz.
+    Quem captura isso é a matriz de covariância: ela guarda, para cada par de
+    ativos, o quanto eles costumam andar juntos. A fórmula w'Σw é a maneira
+    padrão de combinar os pesos com essa matriz.
     """
-    janela = retornos.loc[:data].tail(JANELA_VOL_DIAS)
-    ativos_usados = pesos[pesos != 0].index
-    if len(ativos_usados) == 0:
+    cov = matriz_covariancia(retornos, data, estimador)
+    if cov.empty:
         return np.nan
 
-    janela = janela[ativos_usados].dropna(how="all")
-    if len(janela) < 20:            # amostra pequena demais para ser confiável
+    ativos_usados = [a for a in pesos[pesos != 0].index if a in cov.index]
+    if not ativos_usados:
         return np.nan
 
-    cov = janela.cov().fillna(0.0)
     w = pesos[ativos_usados].to_numpy()
-
-    variancia_diaria = float(w @ cov.to_numpy() @ w)
+    variancia_diaria = float(w @ cov.loc[ativos_usados, ativos_usados].to_numpy() @ w)
     if variancia_diaria <= 0:
         return np.nan
 
@@ -394,7 +470,7 @@ def aplicar_alvo_de_risco(pesos: pd.Series, vol_carteira: float) -> pd.Series:
 #  estratégia "perdia" para o CDI por um artefato contábil, não por desempenho.)
 
 def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
-                   cdi: pd.Series) -> dict:
+                   cdi: pd.Series, estimador: str | None = None) -> dict:
     """Roda a simulação completa e devolve as séries de resultado."""
 
     # Datas de rebalanceamento: último dia útil de cada mês, a partir de 2005.
@@ -415,9 +491,9 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
     for i, data in enumerate(datas_rebal):
         # ---- 1, 2 e 3: decidir a carteira -----------------------------
         sinal = calcular_sinal(precos, data)
-        vol = calcular_volatilidade(retornos, data)
+        vol = calcular_volatilidade(retornos, data, estimador)
         pesos_brutos = calcular_pesos_brutos(sinal, vol)
-        vol_cart = volatilidade_da_carteira(retornos, pesos_brutos, data)
+        vol_cart = volatilidade_da_carteira(retornos, pesos_brutos, data, estimador)
         pesos = aplicar_alvo_de_risco(pesos_brutos, vol_cart)
         pesos = pesos.reindex(precos.columns).fillna(0.0)
 

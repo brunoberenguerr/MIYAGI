@@ -122,8 +122,44 @@ Evidência de que os dados subjacentes são os mesmos: CDI de 2008 (+12,4%), CDI
 2020 (+2,8%) e Ibovespa de 2008 (−41,2%) batem **exatamente** entre as duas
 versões. O que diverge é a contagem do tempo, não o dado.
 
-**O que permanece não reconciliado:** o drawdown máximo e o retorno de 2008. Não
-são explicados pelo calendário e provavelmente vêm de escolhas de implementação
-(estimador de volatilidade EWMA vs. janela simples; como a volatilidade da
-carteira combinada é estimada). Sem o código original não dá para fechar essa
-conta — e isso está declarado aqui em vez de escondido.
+### Hipótese testada e REFUTADA: o estimador de volatilidade
+
+A especificação permitia medir volatilidade de duas formas ("vol EWMA ou janela
+de 60 dias"). A hipótese natural era que o pré-relatório tivesse usado EWMA e
+que isso explicasse o resto da divergência. Rode `comparar_estimadores.py`:
+
+| | janela 60d | EWMA 0,94 | pré-relatório |
+|---|---|---|---|
+| CAGR | 15,0% | 14,6% | 15,5% |
+| Volatilidade | 11,0% | 11,0% | 10,9% |
+| Sharpe | 0,41 | 0,38 | 0,57 |
+| Max Drawdown | −20,4% | −20,3% | −14,5% |
+| 2008 | +3,9% | +3,9% | +9,9% |
+
+**Os dois estimadores dão praticamente o mesmo resultado.** A hipótese foi
+refutada — o que também é um resultado, e fica registrado.
+
+### O que permanece não reconciliado
+
+O drawdown máximo e o retorno de 2008. Três observações relevantes:
+
+1. **O pior tombo da reconstrução é de abr/2020 a mar/2021** (−20,4%, 338 dias),
+   não em 2008. É o "chicote" clássico do trend following: queda forte, robô se
+   posiciona para ela, e a recuperação em V o pega na contramão.
+
+2. **O posicionamento de 2008 está correto.** Vendido em S&P desde fevereiro,
+   comprado em Treasuries o ano todo, e virando o Ibovespa para vendido em
+   outubro. A virada tardia é o custo estrutural da estratégia no ponto de
+   inflexão — não é defeito de implementação.
+
+3. **Os drawdowns da reconstrução são consistentes** (17-20% em 2008, 2009,
+   2010 e 2021), não um episódio isolado. Com volatilidade de 11% a.a., um
+   drawdown máximo de 20% em 21 anos equivale a 1,9× a vol anual — dentro da
+   faixa típica de trend followers (1,5× a 2,5×). Os −14,5% do pré-relatório
+   seriam 1,3×, o que é excepcionalmente bom para um período que inclui 2008
+   e 2020.
+
+Somando ao bug do CDI já comprovado, a leitura mais provável é que o backtest
+original contenha outros problemas de medição. **Isso não está provado** — sem o
+código original não dá para fechar a conta, e a afirmação fica registrada como
+hipótese, não como fato.
