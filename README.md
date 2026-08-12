@@ -224,6 +224,87 @@ A queda é ampla, não concentrada num ativo (contribuição anualizada das posi
 | S&P 500 | +2,5% | +2,7% | +0,2% |
 | **total** | **+9,8%** | **+2,3%** | **−7,5%** |
 
+---
+
+## Parâmetros treinados: walk-forward vs treino/teste
+
+`python treino_parametros.py`
+
+O Miyagi base não treina nada — 12-1 fixo, da literatura. Faz sentido dar a ele
+parâmetros que aprendem? E qual é a forma honesta de fazer isso?
+
+**Por que testar o horizonte do sinal, e não outra coisa:** o diagnóstico de
+períodos mediu que as tendências encurtaram de 11,5 para 6,9 meses. O sinal olha
+12 meses para trás; se a tendência dura 7, o robô entra atrasado por construção.
+A hipótese econômica veio **antes** do teste — e essa ordem é o que separa
+pesquisa de garimpo.
+
+### Resultado no holdout (2017–2026), CDI de 9,1%
+
+| abordagem | CAGR | Sharpe | t | Max DD |
+|---|---|---|---|---|
+| Base (12-1 fixo, sem treino) | 10,4% | 0,16 | 0,50 | −20,4% |
+| **1. Walk-forward (causal)** | **13,0%** | **0,38** | 1,16 | −20,1% |
+| 2. Treino/teste (18-1 congelado) | 16,8% | 0,69 | 2,14 | −19,4% |
+
+Treinar melhorou nos dois casos. Mas **os dois números não valem o mesmo.**
+
+### A tese econômica foi confirmada de forma independente
+
+O walk-forward escolhe o horizonte mês a mês, olhando só o passado. O que ele
+escolheu ao longo do tempo:
+
+| período | horizonte médio | mais escolhido |
+|---|---|---|
+| 2005–2009 | 13,7 meses | 18-1 |
+| 2010–2014 | 11,8 meses | 9-1 |
+| 2015–2019 | 12,6 meses | 12-1 |
+| **2020–2024** | **9,9 meses** | **6-1** |
+| 2025–2026 | 9,0 meses | 9-1 |
+
+**O robô migrou sozinho para horizontes mais curtos depois de 2020** — sem que
+ninguém programasse isso, e usando apenas dados passados. É exatamente o que a
+tese das "tendências encurtando" previa. Duas medições independentes apontando
+para o mesmo mecanismo é a evidência mais forte deste trabalho.
+
+### Por que o 0,69 do treino/teste NÃO deve ser reportado como out-of-sample
+
+Três problemas, em ordem de gravidade:
+
+**1. Contaminação de processo.** Nós já tínhamos rodado `robustez.py` e visto
+que 18-1 era o melhor horizonte do período inteiro (Sharpe 0,73) **antes** de
+rodar este "treino". O treino então "descobriu" 18-1. O código respeita as datas;
+o processo de pesquisa não. Nenhuma implementação conserta isso.
+
+**2. Múltiplos testes.** Cinco horizontes testados, com erro-padrão do Sharpe de
+~0,29 no período de treino. O espalhamento observado no treino (0,15 a 0,77) é
+compatível com ruído puro. Escolher o máximo de cinco sorteios ruidosos e
+apresentá-lo como habilidade é o erro clássico.
+
+**3. O holdout já tinha sido visto.** Analisamos 2017–2026 em detalhe — Sharpe,
+ativos, duração das tendências — antes deste teste. Um holdout observado deixa
+de ser holdout.
+
+### A distinção que vale para o relatório
+
+> **Disciplina de código** — o motor garante que o sinal só vê o passado.
+> **Disciplina de processo** — depende de quando o pesquisador olhou os dados.
+>
+> A primeira é verificável. A segunda depende de honestidade, e é justamente
+> por isso que precisa ser declarada.
+
+O walk-forward tem as duas. O treino/teste tem só a primeira.
+
+**Conclusão:** o walk-forward (Sharpe 0,38 no holdout) é a única das duas cujo
+número pode ser levado a sério como estimativa de desempenho futuro. Ele fica
+como variante v2 **ao lado** da base, não no lugar dela — a base continua sendo
+o resultado principal por ter zero parâmetros ajustados.
+
+*Ressalva honesta:* a família de horizontes {3, 6, 9, 12, 18} e a janela de
+aprendizado de 36 meses foram escolhas nossas. São todas convenções da
+literatura de momentum, mas foram fixadas por nós — e isso também é uma
+liberdade que, em princípio, poderia ser explorada.
+
 ### O que os testes B e F dizem a favor do trabalho
 
 A configuração base **não é a melhor** em duas dimensões testadas:
