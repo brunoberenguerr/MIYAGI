@@ -105,7 +105,25 @@ JANELA_VOL_DIAS = 60      # fonte: convenção da literatura de trend following
 # As duas estavam previstas na especificação. Trocar entre elas para investigar
 # uma divergência é diagnóstico; trocar para melhorar o resultado seria
 # overfitting. A distinção está no motivo, e ele está registrado aqui.
-ESTIMADOR_VOL = "ewma"    # "ewma" | "janela"
+#
+# ESCOLHA OFICIAL: "janela".
+#
+# O motivo NÃO é que ela dá o melhor número. Ela dá (Sharpe 0,41 contra 0,38),
+# e escolher por isso seria exatamente o overfitting contra o qual este arquivo
+# adverte — o critério "testei os dois e fiquei com o que rendeu mais" invalida
+# qualquer backtest, independente de quão pequena seja a diferença.
+#
+# O motivo real, em duas partes:
+#   1. Os dois foram testados (comparar_estimadores.py) e a diferença é
+#      IMATERIAL: drawdown máximo -20,4% contra -20,3%. Não há ganho de
+#      qualidade em nenhuma das direções.
+#   2. Quando duas opções são equivalentes no resultado, vence a mais simples
+#      de explicar e auditar. "Desvio-padrão dos últimos 60 dias" cabe numa
+#      frase; EWMA exige explicar decaimento exponencial e o parâmetro lambda.
+#
+# Registrado porque o critério de escolha importa mais que a escolha: um
+# avaliador precisa conseguir verificar que não houve garimpo de resultado.
+ESTIMADOR_VOL = "janela"  # "janela" | "ewma"
 LAMBDA_EWMA = 0.94        # fonte: RiskMetrics (JP Morgan). Meia-vida ~11 dias.
 JANELA_EWMA_DIAS = 252    # até onde olhar (após isso o peso é desprezível)
 
@@ -615,6 +633,91 @@ def retorno_por_ano(retornos: pd.Series) -> pd.Series:
 
 
 # ==========================================================================
+# BLOCO 8 — OS GRÁFICOS
+# ==========================================================================
+# Duas figuras, porque são as duas perguntas que um avaliador faz:
+#
+#   "quanto rendeu?"        -> curva de patrimônio
+#   "e quanto doeu?"        -> curva de drawdown ("submarino")
+#
+# A curva de patrimônio usa ESCALA LOGARÍTMICA. Parece detalhe técnico e não
+# é: em escala normal, os últimos anos dominam visualmente e a crise de 2008
+# vira um risquinho. Em escala log, uma queda de 50% tem o mesmo tamanho no
+# gráfico esteja ela no começo ou no fim — que é o que permite comparar
+# períodos honestamente.
+
+def gerar_graficos(retornos: pd.Series, ibov: pd.Series, cdi: pd.Series,
+                   destino: Path) -> None:
+    """Salva as duas figuras do relatório."""
+    import matplotlib
+    matplotlib.use("Agg")          # sem janela: só grava arquivo
+    import matplotlib.pyplot as plt
+
+    COR_MIYAGI = "#1B4965"         # azul profundo
+    COR_IBOV = "#8D99AE"           # cinza
+    COR_CDI = "#C1121F"            # vermelho discreto
+
+    patrimonio = (1 + retornos).cumprod()
+    pat_ibov = (1 + ibov).cumprod()
+    pat_cdi = (1 + cdi.reindex(retornos.index).fillna(0.0)).cumprod()
+
+    # ---------------- Figura 1: patrimônio acumulado ----------------------
+    fig, ax = plt.subplots(figsize=(11, 5.2))
+
+    # Sombreia as duas crises: é onde a estratégia precisa se justificar.
+    # O rótulo usa `get_xaxis_transform`: o x fica em coordenada de data, mas
+    # o y em fração do eixo (0 = base, 1 = topo). Sem isso o texto é
+    # posicionado antes das curvas existirem, e some para fora do gráfico.
+    for inicio, fim, rotulo in [("2008-01-01", "2009-03-31", "crise 2008"),
+                                ("2020-02-01", "2020-06-30", "COVID")]:
+        ax.axvspan(pd.Timestamp(inicio), pd.Timestamp(fim),
+                   color="#000000", alpha=0.055, zorder=0)
+        ax.text(pd.Timestamp(inicio), 0.02, f" {rotulo}",
+                transform=ax.get_xaxis_transform(),
+                fontsize=7.5, color="#555555", va="bottom")
+
+    ax.plot(patrimonio.index, patrimonio, color=COR_MIYAGI, lw=2.0, label="MIYAGI")
+    ax.plot(pat_ibov.index, pat_ibov, color=COR_IBOV, lw=1.3, label="Ibovespa")
+    ax.plot(pat_cdi.index, pat_cdi, color=COR_CDI, lw=1.3, ls="--", label="CDI")
+
+    ax.set_yscale("log")
+    ax.set_ylabel("patrimônio (escala log, base 1)")
+    ax.set_title("Miyagi — patrimônio acumulado, 2005-2026",
+                 fontsize=12, fontweight="bold", color=COR_MIYAGI, loc="left")
+    ax.legend(frameon=False, loc="upper left", fontsize=9)
+    ax.grid(alpha=0.22, lw=0.6)
+    for lado in ("top", "right"):
+        ax.spines[lado].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(destino / "patrimonio.png", dpi=160)
+    plt.close(fig)
+
+    # ---------------- Figura 2: drawdown ("o sofrimento") -----------------
+    # Drawdown responde: "se eu tivesse entrado no pior momento possível,
+    # quanto eu estaria perdendo agora?" É a métrica que decide se um
+    # investidor real aguentaria segurar a posição — ou desistiria no fundo.
+    dd = patrimonio / patrimonio.cummax() - 1
+    dd_ibov = pat_ibov / pat_ibov.cummax() - 1
+
+    fig, ax = plt.subplots(figsize=(11, 3.4))
+    ax.fill_between(dd_ibov.index, dd_ibov * 100, 0,
+                    color=COR_IBOV, alpha=0.55, lw=0, label="Ibovespa")
+    ax.fill_between(dd.index, dd * 100, 0,
+                    color=COR_MIYAGI, alpha=0.85, lw=0, label="MIYAGI")
+
+    ax.set_ylabel("queda do topo (%)")
+    ax.set_title("Quanto doeu — drawdown", fontsize=12, fontweight="bold",
+                 color=COR_MIYAGI, loc="left")
+    ax.legend(frameon=False, loc="lower left", fontsize=9)
+    ax.grid(alpha=0.22, lw=0.6)
+    for lado in ("top", "right"):
+        ax.spines[lado].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(destino / "drawdown.png", dpi=160)
+    plt.close(fig)
+
+
+# ==========================================================================
 # EXECUÇÃO
 # ==========================================================================
 
@@ -689,11 +792,20 @@ def main() -> None:
         print(f"[!] ALERTA: Sharpe {s:.2f} está acima de 1,5 — a literatura reporta")
         print("    0,5 a 1,0 para trend following. Isso é forte indício de BUG ou")
         print("    viés no código. Investigue ANTES de acreditar no resultado.")
-    elif 0.4 <= s <= 1.2:
-        print(f"[ok] Sharpe {s:.2f} está na faixa esperada pela literatura (0,5-1,0).")
-        print("     Resultado modesto o bastante para ser crível.")
+    elif 0.5 <= s <= 1.0:
+        print(f"[ok] Sharpe {s:.2f} está DENTRO da faixa da literatura (0,5-1,0).")
+        print("     Modesto o bastante para ser crível.")
+    elif 0.3 <= s < 0.5:
+        print(f"[~] Sharpe {s:.2f} está LIGEIRAMENTE ABAIXO da faixa da literatura")
+        print("    (0,5-1,0). A estratégia entrega, mas menos do que os artigos")
+        print("    reportam. Isso precisa ir para o relatório como está — não é")
+        print("    um número para arredondar para cima nem para esconder.")
+    elif s < 0.3:
+        print(f"[!] Sharpe {s:.2f} é baixo demais para justificar a estratégia")
+        print("    frente ao CDI. Vale reexaminar premissas antes de defender.")
     else:
-        print(f"[?] Sharpe {s:.2f} está fora da faixa típica — vale investigar.")
+        print(f"[?] Sharpe {s:.2f} está entre 1,0 e 1,5 — acima do típico.")
+        print("    Não é alarme, mas vale conferir se não há viés escondido.")
 
     # --- Salva os resultados ---
     saida = AQUI / "resultados"
@@ -704,7 +816,10 @@ def main() -> None:
         "drawdown": m_miyagi["drawdown"],
     }).to_csv(saida / "serie_miyagi.csv")
     resultado["pesos"].to_csv(saida / "pesos_miyagi.csv")
-    print(f"\nResultados salvos em resultados/")
+
+    gerar_graficos(r, ibov, cdi, saida)
+    print(f"\nResultados salvos em resultados/  "
+          f"(serie_miyagi.csv, pesos_miyagi.csv, patrimonio.png, drawdown.png)")
 
 
 if __name__ == "__main__":
