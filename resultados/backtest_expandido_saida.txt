@@ -1,0 +1,67 @@
+==================================================================================
+MIYAGI — BACKTEST COM UNIVERSO EXPANDIDO
+==================================================================================
+  Previsão registrada antes deste backtest: Sharpe 0.65
+  (= 0.51 × raiz(11.3/7.0))
+
+  Universo: 40 ativos | 2003-01 a 2026-07
+
+[1/2] Base (12-1 fixo) no universo expandido...
+[2/2] Walk-forward no universo expandido...
+      horizonte 3-1 ...
+      horizonte 6-1 ...
+      horizonte 9-1 ...
+      horizonte 12-1 ...
+      horizonte 18-1 ...
+
+==================================================================================
+RESULTADO
+==================================================================================
+                                        CAGR     Vol   Sharpe      t   Max DD
+  ----------------------------------------------------------------------------
+  universo de 8 ativos (referência)
+    base 12-1                          15.0%   11.0%     0.41   1.88   -20.4%
+    walk-forward                       16.3%   11.0%     0.51   2.36   -20.1%
+
+  universo de 40 ativos (novo)
+    base 12-1                          17.2%   10.4%     0.60   2.78   -21.6%
+    walk-forward                       15.6%   10.3%     0.48   2.22   -24.2%
+
+==================================================================================
+CONTROLE DE RISCO — o alvo de 10% foi respeitado?
+==================================================================================
+  Se a volatilidade realizada estourar o alvo, a matriz de covariância
+  está subestimando o risco e a alavancagem saiu de controle.
+
+                               vol realizada    alvo   exposição média
+  --------------------------------------------------------------------
+  base 12-1                           10.4%     10%             2.52x
+  walk-forward                        10.3%     10%             2.52x
+
+  [ok] Vol realizada dentro do esperado — o alvo de risco segurou
+       mesmo com 5x mais ativos.
+
+==================================================================================
+PREVISÃO vs REALIZADO
+==================================================================================
+
+      previsto (antes do backtest) ....... 0.65
+      realizado (walk-forward, 40 ativos)  0.48
+      erro ............................... -0.17
+
+  VEREDITO: resultado ABAIXO do previsto.
+  A correlacao media superestimou a diversificacao real. Isso e
+  um achado legitimo: em regimes de estresse os ativos se movem
+  juntos, e a correlacao media nao captura isso.
+
+==================================================================================
+SUB-PERÍODOS — a fraqueza pós-2016 melhorou?
+==================================================================================
+  período              8 ativos (WF)    40 ativos (WF)      CDI
+  --------------------------------------------------------------
+  2005-2010                     0.32              0.37    12.6%
+  2011-2015                     1.40              0.60    10.4%
+  2016-2020                    -0.04             -0.31     7.8%
+  2021-2026                     0.03              1.21    11.3%
+
+  Séries gravadas em resultados/serie_expandido.csv

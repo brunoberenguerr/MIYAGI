@@ -325,6 +325,104 @@ aprendizado de 36 meses foram escolhas nossas. São todas convenções da
 literatura de momentum, mas foram fixadas por nós — e isso também é uma
 liberdade que, em princípio, poderia ser explorada.
 
+---
+
+## Universo expandido: 8 → 40 ativos
+
+`python expandir_pool.py` → `python funil_expandido.py` → `python backtest_expandido.py`
+
+O pool de candidatos foi ampliado de 42 para **114** — a maior lacuna era
+commodities, que apareciam quase só como cesta (DBC). Petróleo, cobre, café e
+boi têm ciclos próprios; uma cesta funde tudo numa aposta só. Foram incluídos 20
+futuros de commodities individuais, 4 futuros de Treasury, 22 índices de bolsa
+em moeda local e 14 pares de câmbio.
+
+O funil aplicado foi **idêntico** ao original (correlação de retornos mensais
+log, clustering hierárquico average linkage sobre 1−ρ, corte em 0,35, histórico
+≥15 anos). O representante de cada cluster é o **medoide**, com desempate por
+histórico — regra cega a retorno.
+
+| | ativos | ρ médio | apostas efetivas |
+|---|---|---|---|
+| atual | 8 | 0,020 | 7,0 |
+| expandido | 40 | 0,065 | **11,3** |
+
+### A previsão foi registrada antes do backtest
+
+Commit `88392ef`, anterior à existência de `backtest_expandido.py`:
+
+> `Sharpe_novo = 0,51 × √(11,3 / 7,0) = 0,65`
+
+### O resultado — todas as quatro combinações
+
+| | Sharpe | t | CAGR | Vol | Max DD |
+|---|---|---|---|---|---|
+| 8 ativos · 12-1 fixo | 0,41 | 1,88 | 15,0% | 11,0% | −20,4% |
+| 8 ativos · walk-forward | 0,51 | 2,36 | 16,3% | 11,0% | −20,1% |
+| **40 ativos · 12-1 fixo** | **0,60** | **2,78** | 17,2% | 10,4% | −21,6% |
+| 40 ativos · walk-forward | 0,48 | 2,22 | 15,6% | 10,3% | −24,2% |
+
+**A previsão de 0,65 não foi batida pelo walk-forward (0,48).** Mas o quadro é
+mais interessante que um simples erro:
+
+- Para a **configuração base**, a previsão equivalente era 0,41 × 1,273 = 0,52.
+  O realizado foi **0,60** — a expansão entregou o que a teoria previa, e um
+  pouco mais.
+- Para o **walk-forward**, a previsão era 0,65 e o realizado 0,48. **A adaptação
+  de horizonte, que ajudava com 8 ativos, atrapalha com 40.**
+
+### Por que o walk-forward deixou de ajudar
+
+A explicação econômica: **adaptar o horizonte e diversificar ativos são
+substitutos, não complementos.** Ambos servem para não depender de um único
+regime de tendência. Com 8 ativos, trocar de horizonte era a única defesa
+disponível contra tendências que encurtavam. Com 40 ativos espalhados por
+commodities, câmbios, juros e bolsas, sempre há algum mercado em tendência
+longa — a diversificação já faz esse trabalho, e a troca de horizonte vira
+giro extra sem ganho.
+
+O drawdown confirma: piora de −21,6% (fixo) para −24,2% (walk-forward).
+
+### O controle de risco segurou
+
+Preocupação legítima: com 40 ativos e janela de 60 dias, q = 0,67, e a
+covariância amostral tende a **subestimar** o risco — o que viraria alavancagem
+excessiva. Medido explicitamente:
+
+| | vol realizada | alvo |
+|---|---|---|
+| 40 ativos · 12-1 | 10,4% | 10% |
+| 40 ativos · walk-forward | 10,3% | 10% |
+
+O alvo segurou mesmo com 5× mais ativos.
+
+### Sub-períodos: o perfil mudou de forma relevante
+
+| período | 8 ativos (WF) | 40 ativos (WF) | CDI |
+|---|---|---|---|
+| 2005–2010 | 0,32 | 0,37 | 12,6% |
+| 2011–2015 | **1,40** | 0,60 | 10,4% |
+| 2016–2020 | −0,04 | −0,31 | 7,8% |
+| **2021–2026** | **0,03** | **1,21** | 11,3% |
+
+O universo expandido inverte o problema recente: o bloco 2021–2026 salta de
+0,03 para **1,21**. Economicamente coerente — 2021–22 teve tendências fortes e
+duradouras em energia, grãos e metais, exatamente o que 20 commodities
+individuais capturam e uma cesta única dilui.
+
+**Mas não extrapole isso.** Um Sharpe de 1,21 num bloco de 5 anos, concentrado
+num choque inflacionário específico, não é previsão de futuro. A fraqueza de
+2016–2020 continua lá, e piorou.
+
+### Ressalva de múltiplos testes
+
+Já foram testadas quatro combinações de universo × parametrização. Com
+erro-padrão do Sharpe de ~0,22 em 21 anos, o intervalo observado (0,41 a 0,60)
+é compatível com o que puro ruído produziria ao se escolher o máximo de quatro
+tentativas. O 0,60 deve ser lido com esse desconto — e a tabela completa das
+quatro células está acima justamente para que ninguém precise adivinhar quantas
+foram testadas.
+
 ### O que os testes B e F dizem a favor do trabalho
 
 A configuração base **não é a melhor** em duas dimensões testadas:
