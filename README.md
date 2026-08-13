@@ -295,10 +295,30 @@ de ser holdout.
 
 O walk-forward tem as duas. O treino/teste tem só a primeira.
 
-**Conclusão:** o walk-forward (Sharpe 0,38 no holdout) é a única das duas cujo
-número pode ser levado a sério como estimativa de desempenho futuro. Ele fica
-como variante v2 **ao lado** da base, não no lugar dela — a base continua sendo
-o resultado principal por ter zero parâmetros ajustados.
+### DECISÃO: o walk-forward é a versão adotada (v2)
+
+Decidido em 13/08/2026. O walk-forward passa a ser a versão principal da
+estratégia, apresentada **ao lado** da base — não no lugar dela.
+
+| | período inteiro (2005–2026) | recente (2017–2026) |
+|---|---|---|
+| Base (12-1 fixo) | 0,41 (t=1,88) | 0,16 |
+| **Walk-forward (adotado)** | **0,51 (t=2,36)** | **0,38** |
+
+Três razões, em ordem de peso:
+
+1. **Cruza o limiar de significância.** Com t = 2,36 o resultado é
+   estatisticamente distinguível de zero pela convenção usual (t > 2); a base,
+   com 1,88, não é. É uma diferença qualitativa, não só um número maior.
+2. **Entra na faixa da literatura** (0,5–1,0), onde a base ficava de fora.
+3. **A justificativa econômica veio antes do teste** e foi confirmada por um
+   caminho independente (o robô migrou sozinho para horizontes curtos quando as
+   tendências encurtaram).
+
+**Por que a base continua sendo reportada junto:** ela tem zero parâmetros
+ajustados, o que é o argumento mais forte possível para "tratamento adequado de
+vieses". A comparação entre as duas *é* a análise crítica — mostra o ganho de
+adaptar e o custo em complexidade.
 
 *Ressalva honesta:* a família de horizontes {3, 6, 9, 12, 18} e a janela de
 aprendizado de 36 meses foram escolhas nossas. São todas convenções da
