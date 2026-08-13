@@ -93,30 +93,41 @@ primeiro lugar.</p>
 
 <div class="grid">
   <div class="card"><div class="l">Universo</div><div class="k">40</div><div class="d">de 114 candidatos</div></div>
-  <div class="card"><div class="l">CAGR</div><div class="k">17,2%</div><div class="d">CDI: 10,7%</div></div>
-  <div class="card"><div class="l">Sharpe</div><div class="k">0,60</div><div class="d">t = 2,78</div></div>
-  <div class="card"><div class="l">Max DD</div><div class="k">−21,6%</div><div class="d">Ibovespa: −60%</div></div>
+  <div class="card"><div class="l">CAGR</div><div class="k">15,9%</div><div class="d">CDI: 10,7%</div></div>
+  <div class="card"><div class="l">Sharpe</div><div class="k">0,50</div><div class="d">t = 2,30</div></div>
+  <div class="card"><div class="l">Max DD</div><div class="k">−23,0%</div><div class="d">Ibovespa: −60%</div></div>
 </div>
+
+<p><small class="note">Números <strong>com o carrego cambial corrigido</strong>
+(ver seção 8). A versão sem essa correção dava Sharpe 0,60 e está superada.</small></p>
 
 <h3>As cinco conclusões que definem o trabalho</h3>
 <ol>
-  <li><strong>A estratégia funciona</strong>, mas com Sharpe modesto — na faixa
-  baixa do que a literatura reporta.</li>
+  <li><strong>A estratégia funciona</strong>, com Sharpe de 0,50 e significância
+  estatística (t = 2,30) — modesto, na faixa baixa da literatura.</li>
   <li><strong>Ela parou de bater o CDI entre 2016 e 2020</strong>, e a causa foi
   medida: as tendências encurtaram 40% (de 11,5 para 6,9 meses).</li>
-  <li><strong>Expandir o universo de 8 para 40 ativos passou a robustez de 4/6
-  para 6/6</strong> — mas o ganho de retorno veio quase todo de um único ativo.</li>
-  <li><strong>Sem a lira turca, o Sharpe cai de 0,60 para 0,42</strong> e perde
-  significância estatística. A diversificação prometida pela correlação não se
-  materializou.</li>
+  <li><strong>Expandir o universo de 8 para 40 ativos ajudou de verdade</strong>
+  (Sharpe 0,36 → 0,50) e passou a robustez de 4/6 para 6/6.</li>
+  <li><strong>Encontramos e corrigimos um erro que inflava o resultado:</strong> o
+  backtest ignorava os juros no câmbio. A lira turca parecia render +18% ao ano;
+  com o carrego correto, rende −1,6%.</li>
   <li><strong>Duas estratégias foram descartadas com rigor no caminho</strong>
   (MARÉ e o walk-forward no universo grande) — e isso vale mais que um número
   bonito.</li>
 </ol>
 
+<div class="callout good">
+  <p><strong>A previsão registrada se confirmou.</strong> Antes de expandir o
+  universo, foi registrado no repositório (commit <code>88392ef</code>) que o
+  Sharpe deveria escalar pela raiz das apostas efetivas. Nos dados corrigidos:
+  previsto 0,455, realizado <strong>0,50</strong> — dentro da banda de ±0,10
+  declarada antes de qualquer resultado existir.</p>
+</div>
+
 <div class="callout bad">
-  <p><strong>O que precisa aparecer no relatório de 5 páginas:</strong> a
-  dependência da lira turca e o buraco de 2016–2020. Um avaliador que fatiar o
+  <p><strong>O que precisa aparecer no relatório de 5 páginas:</strong> o buraco
+  de 2016–2020 e a dependência residual da lira. Um avaliador que fatiar o
   período ou olhar contribuição por ativo encontra os dois em minutos — muito
   melhor que venham de nós.</p>
 </div>
@@ -131,8 +142,11 @@ primeiro lugar.</p>
   <tr><td><strong>MIYAGI v1</strong></td><td>trend following, 8 ativos, 12-1 fixo</td>
       <td>Sharpe 0,41</td></tr>
   <tr><td>MIYAGI v2</td><td>horizonte adaptativo (walk-forward)</td><td>Sharpe 0,51</td></tr>
-  <tr class="hl"><td><strong>MIYAGI v3</strong></td><td>universo expandido, 40 ativos, 12-1 fixo</td>
-      <td><strong>Sharpe 0,60</strong></td></tr>
+  <tr><td>MIYAGI v3</td><td>universo expandido, 40 ativos, 12-1 fixo</td>
+      <td>Sharpe 0,60 <small class="note">(inflado)</small></td></tr>
+  <tr class="hl"><td><strong>MIYAGI v4</strong></td>
+      <td><strong>v3 com o carrego cambial corrigido</strong></td>
+      <td><strong>Sharpe 0,50</strong></td></tr>
 </table>
 
 <h3>Por que o MARÉ foi descartado</h3>
@@ -290,6 +304,24 @@ A exposição a Brasil permanece via BRL=X.</small></p>
 
 <h2 class="pb">6. Como o backtest funciona</h2>
 
+<h3>Como reproduzir</h3>
+<pre>git clone https://github.com/brunoberenguerr/MIYAGI.git &amp;&amp; cd MIYAGI
+python -m venv .venv &amp;&amp; .venv\Scripts\activate
+pip install pandas numpy matplotlib scipy yfinance requests
+
+<span class="c"># pipeline principal, nesta ordem</span>
+python expandir_pool.py       <span class="c"># baixa os 114 candidatos do Yahoo</span>
+python carrego.py             <span class="c"># corrige o carrego cambial (juros do FRED)</span>
+python funil_expandido.py     <span class="c"># funil de correlacao -> 40 ativos</span>
+python resultado_final.py     <span class="c"># RESULTADO OFICIAL</span>
+
+<span class="c"># diagnosticos</span>
+python robustez.py --universo 40
+python analise_periodos.py
+python treino_parametros.py
+python figuras_relatorio.py   <span class="c"># dendrograma, matriz, ordens</span></pre>
+
+<h3>A lógica, em pseudocódigo</h3>
 <p>O motor "rebobina a fita" de 2005 a 2026, mês a mês, <strong>fingindo não
 saber o futuro</strong>. A cada fim de mês:</p>
 
@@ -333,18 +365,26 @@ custo = |peso_novo - peso_antigo|.soma() × 0,1%
 <table>
   <tr><th></th><th class="num">CAGR</th><th class="num">Vol</th><th class="num">Sharpe*</th>
       <th class="num">t</th><th class="num">Max DD</th></tr>
-  <tr class="hl"><td><strong>MIYAGI · 40 ativos</strong></td><td class="num">17,2%</td>
-      <td class="num">10,4%</td><td class="num">0,60</td><td class="num">2,78</td><td class="num">−21,6%</td></tr>
-  <tr><td>MIYAGI · 8 ativos</td><td class="num">15,0%</td><td class="num">11,0%</td>
-      <td class="num">0,41</td><td class="num">1,88</td><td class="num">−20,4%</td></tr>
+  <tr class="hl"><td><strong>MIYAGI · 40 ativos</strong></td><td class="num">15,9%</td>
+      <td class="num">10,5%</td><td class="num">0,50</td><td class="num">2,30</td><td class="num">−23,0%</td></tr>
+  <tr><td>MIYAGI · 8 ativos</td><td class="num">14,4%</td><td class="num">11,0%</td>
+      <td class="num">0,36</td><td class="num">1,64</td><td class="num">−20,4%</td></tr>
   <tr><td>Ibovespa</td><td class="num">9,7%</td><td class="num">25,7%</td>
       <td class="num">0,09</td><td class="num">—</td><td class="num">−60,0%</td></tr>
   <tr><td>CDI</td><td class="num">10,7%</td><td class="num">0,2%</td>
       <td class="num">—</td><td class="num">—</td><td class="num">0,0%</td></tr>
 </table>
-<p><small class="note">* Sharpe do excesso sobre o CDI. Período 2005–2026 (21,5 anos),
-259 rebalanceamentos, exposição média 2,5×, volatilidade realizada de 10,4%
+<p><small class="note">* Sharpe do excesso sobre o CDI, <strong>com o carrego
+cambial corrigido nos dois universos</strong>. Período 2005–2026 (21,5 anos),
+259 rebalanceamentos, exposição média 2,5×, volatilidade realizada de 10,5%
 contra alvo de 10%.</small></p>
+
+<div class="callout">
+  <p><strong>Só a versão de 40 ativos mantém significância estatística.</strong>
+  Com t = 2,30 o resultado é distinguível de zero pela convenção usual (t &gt; 2);
+  o universo de 8, com t = 1,64, não é. A expansão não melhorou apenas o número —
+  mudou a qualidade da evidência.</p>
+</div>
 
 <figure>
   <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/patrimonio_40.png" alt="Patrimônio">
@@ -362,55 +402,107 @@ contra alvo de 10%.</small></p>
 </figure>
 
 <div class="callout bad">
-  <p><strong>O resultado depende da lira turca.</strong> TRY=X sozinha contribui
-  <strong>1,92% ao ano</strong> num excesso total sobre o CDI de ~6,5% — cerca de
-  30% de todo o resultado, vindo de um ativo entre 40.</p>
+  <p><strong>Foi este gráfico que revelou um erro de modelagem.</strong> Na versão
+  original, TRY=X sozinha contribuía 1,92% ao ano — quatro vezes o segundo
+  colocado. Uma concentração dessas em 1 de 40 ativos não fazia sentido
+  econômico, e a investigação encontrou a causa.</p>
 </div>
 
+<h3>O erro: o backtest ignorava os juros no câmbio</h3>
+
+<p>O modelo usava <strong>apenas a variação do preço à vista</strong> das moedas.
+Mas para ficar comprado em USD/TRY (vendido em lira) é preciso tomar lira
+emprestada e <strong>pagar a taxa de juros turca</strong> — que chegou a 40–50%
+ao ano em 2023–2025, contra 0–5,5% nos EUA. Esse custo nunca era cobrado.</p>
+
+<p>Há um argumento teórico que fecha o caso. Pela <strong>paridade descoberta de
+juros</strong>, moedas de juro alto se desvalorizam aproximadamente pelo
+diferencial de juros. O fato de a lira ter caído 18% ao ano é, ele mesmo,
+evidência de que o diferencial era dessa ordem — ganho e custo se cancelam quase
+por construção.</p>
+
+<h4>Verificação prévia: os dados estavam corretos</h4>
+<p>Antes de concluir por erro de modelagem, a série foi auditada: USD/TRY de 1,34
+para 47,10 é real; os saltos batem com eventos históricos (crise cambial de
+agosto/2018, política de juros de dezembro/2021); volatilidade de 16% a.a. é
+plausível; 0,9% de preços repetidos. <strong>Não havia erro de dados nem de
+código.</strong></p>
+
+<h3>A correção, com dados reais de juros</h3>
+<p>Séries do FRED (IMF/IFS). Cada par virou um índice de <strong>retorno
+total</strong>: <code>retorno_total = retorno_do_preço + carrego</code>, com
+<code>carrego = (juro_USD − juro_estrangeiro)/252</code> para pares USD/XXX.</p>
+
 <table>
-  <tr><th>Universo</th><th class="num">Sharpe</th><th class="num">t</th><th class="num">CAGR</th></tr>
-  <tr class="hl"><td>40 ativos (base)</td><td class="num">0,60</td><td class="num">2,78</td><td class="num">17,2%</td></tr>
-  <tr class="bad"><td><strong>sem TRY=X</strong></td><td class="num"><strong>0,42</strong></td>
-      <td class="num"><strong>1,95</strong></td><td class="num">15,1%</td></tr>
-  <tr class="bad"><td>sem os 4 câmbios emergentes</td><td class="num">0,40</td><td class="num">1,86</td><td class="num">15,0%</td></tr>
-  <tr class="bad"><td>sem os 3 maiores contribuidores</td><td class="num">0,36</td><td class="num">1,68</td><td class="num">14,4%</td></tr>
+  <tr><th>Par</th><th class="num">só preço</th><th class="num">com carrego</th><th class="num">diferença</th></tr>
+  <tr class="bad"><td><strong>TRY=X</strong></td><td class="num">+18,0%</td>
+      <td class="num"><strong>−1,6%</strong></td><td class="num">−19,6 p.p.</td></tr>
+  <tr class="bad"><td>BRL=X</td><td class="num">+2,5%</td><td class="num">−10,3%</td><td class="num">−12,8</td></tr>
+  <tr class="bad"><td>ZAR=X</td><td class="num">+4,3%</td><td class="num">−0,7%</td><td class="num">−5,0</td></tr>
+  <tr class="bad"><td>MXN=X</td><td class="num">+1,9%</td><td class="num">−2,8%</td><td class="num">−4,7</td></tr>
+  <tr class="bad"><td>INR=X</td><td class="num">+3,4%</td><td class="num">−1,5%</td><td class="num">−4,9</td></tr>
+  <tr class="ok"><td>JPY=X</td><td class="num">+1,8%</td><td class="num"><strong>+3,3%</strong></td><td class="num">+1,6</td></tr>
 </table>
 
-<p><strong>Sem a lira, o universo de 40 rende 0,42 — praticamente igual aos 0,41
-do universo de 8.</strong> O ganho aparente da expansão veio quase todo de um
-ativo, e o t-stat volta para baixo do limiar de significância.</p>
+<p>A paridade de juros se confirma quase exatamente. E o iene vai na direção
+<strong>oposta</strong>: como os juros japoneses eram <em>menores</em> que os
+americanos, ficar comprado em USD/JPY <em>recebe</em> carrego — ali estávamos
+subestimando o resultado.</p>
 
-<h3>O que isso faz com a previsão registrada</h3>
-<p>Antes de rodar o backtest expandido, a previsão foi registrada no repositório
-(commit <code>88392ef</code>, anterior à existência do script):</p>
-<pre>Sharpe_novo = 0,51 × raiz(11,3 / 7,0) = 0,65</pre>
+<div class="callout warn">
+  <p><strong>Limitação declarada:</strong> G10 (AUD, CAD, GBP, SEK, EUR) não tem
+  série pública completa no FRED e ficou <em>sem</em> correção. O diferencial
+  dessas moedas contra o dólar é de 0–5 p.p., ordem muito menor que o da lira,
+  mas o erro residual existe.</p>
+</div>
 
+<h3>O impacto no resultado</h3>
 <table>
-  <tr><th></th><th class="num">Sharpe</th></tr>
-  <tr><td>previsto pela teoria de diversificação (base)</td><td class="num">0,52</td></tr>
-  <tr><td>realizado <strong>com</strong> TRY=X</td><td class="num">0,60</td></tr>
-  <tr class="bad"><td>realizado <strong>sem</strong> TRY=X</td><td class="num"><strong>0,42</strong></td></tr>
+  <tr><th>Universo</th><th class="num">sem carrego</th><th class="num">com carrego (correto)</th></tr>
+  <tr><td>8 ativos</td><td class="num">0,41 (t=1,88)</td><td class="num">0,36 (t=1,64)</td></tr>
+  <tr class="hl"><td><strong>40 ativos</strong></td><td class="num">0,60 (t=2,78)</td>
+      <td class="num"><strong>0,50 (t=2,30)</strong></td></tr>
 </table>
 
-<p>Descontando o ativo excepcional, o resultado fica <strong>abaixo</strong> do
-previsto — exatamente o terceiro cenário pré-registrado: <em>"a correlação média
-superestima a diversificação real"</em>. Em regimes de estresse os ativos se
-movem juntos, e a correlação média não captura isso.</p>
+<p><strong>A expansão do universo ajudou de verdade: 0,36 → 0,50.</strong> A
+queda foi menor do que se poderia supor porque a estratégia é trend following,
+não compra-e-segura — ela opera nos dois sentidos e continua capturando
+movimento mesmo sem o drift artificial.</p>
+
+<h3>A previsão registrada se confirma nos dados limpos</h3>
+<p>A metodologia registrada em <code>88392ef</code> era escalar o Sharpe pela raiz
+das apostas efetivas. Aplicada à base corrigida:</p>
+<pre>previsto  =  0,36 × raiz(11,2 / 7,0)  =  0,455
+realizado =  0,50
+erro      =  +0,045      <span class="c">dentro da banda de ±0,10 declarada antes</span></pre>
+
+<p><strong>O ganho de diversificação era real; o que estava errado era o
+instrumento, não a teoria.</strong></p>
+<p><small class="note">Ressalva: a previsão original (0,65) usava o walk-forward
+sobre dados não corrigidos. O número acima é a mesma fórmula recalculada sobre a
+base limpa — a metodologia foi registrada antes, o insumo mudou.</small></p>
+
+<h3>Concentração depois da correção</h3>
+<table>
+  <tr><th>Universo</th><th class="num">Sharpe</th><th class="num">t</th></tr>
+  <tr class="hl"><td>completo (40 ativos)</td><td class="num">0,50</td><td class="num">2,30</td></tr>
+  <tr><td>sem TRY=X</td><td class="num">0,41</td><td class="num">1,89</td></tr>
+  <tr><td>sem todos os câmbios emergentes</td><td class="num">0,40</td><td class="num">1,87</td></tr>
+  <tr><td>sem câmbio nenhum</td><td class="num">0,43</td><td class="num">1,97</td></tr>
+</table>
+
+<p>A dependência da lira <strong>caiu pela metade</strong> — o impacto de removê-la
+passou de −0,18 para −0,09. Ela segue como maior contribuidora (+1,08% a.a.
+contra +1,92% antes), mas o segundo colocado agora está próximo (JPY=X, +0,62%),
+e não a 4× de distância. Mesmo sem <em>nenhuma</em> moeda, o universo de 40 rende
+0,43 — acima dos 0,36 do universo de 8.</p>
 
 <div class="callout">
   <p><strong>Por que TRY=X permanece no universo.</strong> Foi selecionada pelo
   funil mecânico, por correlação, antes de qualquer backtest. Removê-la agora
   <em>porque sabemos que rendeu bem</em> seria overfitting ao contrário — a mesma
-  falha metodológica com o sinal invertido. Ela fica, e a sensibilidade fica
-  reportada ao lado.</p>
-</div>
-
-<div class="callout warn">
-  <p><strong>Risco adicional, não medido:</strong> a lira tem peso de
-  <strong>0,61</strong> numa exposição bruta de 3,00 — 20% do livro. O
-  dimensionamento por 1/volatilidade dá peso enorme a uma moeda que se
-  desvaloriza de forma <em>estável</em> (volatilidade diária baixa, tendência
-  forte). É o padrão clássico de risco de crash: parece calmo até não parecer.</p>
+  falha metodológica com o sinal invertido. Ela fica, com o carrego corretamente
+  cobrado e a sensibilidade reportada ao lado.</p>
 </div>
 
 <h2 class="pb">9. As ordens geradas</h2>
@@ -493,17 +585,18 @@ Uma lição metodológica: agregação esconde concentração.</small></p>
 
 <h3>10.2 Sub-períodos — o buraco que resiste a tudo</h3>
 <table>
-  <tr><th>Período</th><th class="num">Sharpe (40)</th><th class="num">CAGR</th>
+  <tr><th>Período</th><th class="num">Sharpe (40, corrigido)</th><th class="num">CAGR</th>
       <th class="num">CDI</th><th>Superou?</th></tr>
-  <tr class="ok"><td>2005–2010</td><td class="num">0,40</td><td class="num">17,3%</td><td class="num">12,9%</td><td>sim</td></tr>
-  <tr class="ok"><td>2011–2015</td><td class="num">1,04</td><td class="num">21,9%</td><td class="num">10,4%</td><td>sim</td></tr>
-  <tr class="bad"><td><strong>2016–2020</strong></td><td class="num"><strong>−0,23</strong></td>
-      <td class="num">4,7%</td><td class="num">7,8%</td><td><strong>não</strong></td></tr>
-  <tr class="ok"><td>2021–2026</td><td class="num">1,20</td><td class="num">25,1%</td><td class="num">11,3%</td><td>sim</td></tr>
+  <tr class="ok"><td>2005–2010</td><td class="num">0,58</td><td class="num">19,8%</td><td class="num">12,9%</td><td>sim</td></tr>
+  <tr class="ok"><td>2011–2015</td><td class="num">0,62</td><td class="num">16,8%</td><td class="num">10,4%</td><td>sim</td></tr>
+  <tr class="bad"><td><strong>2016–2020</strong></td><td class="num"><strong>−0,45</strong></td>
+      <td class="num">2,4%</td><td class="num">7,8%</td><td><strong>não</strong></td></tr>
+  <tr class="ok"><td>2021–2026</td><td class="num">1,15</td><td class="num">24,4%</td><td class="num">11,3%</td><td>sim</td></tr>
 </table>
 
 <p><strong>2016–2020 é a única fraqueza que sobreviveu a tudo</strong> que
-tentamos: mais ativos, horizonte adaptativo, todas as variações de parâmetro.</p>
+tentamos: mais ativos, horizonte adaptativo, todas as variações de parâmetro — e
+a correção do carrego, que a <em>piorou</em> (de −0,23 para −0,45).</p>
 
 <h4>A causa foi medida</h4>
 <table>
@@ -558,6 +651,9 @@ não quebra nada e não aparece em teste.</p>
 
 <table>
   <tr><th>Erro encontrado</th><th>Impacto</th></tr>
+  <tr><td><strong>Carrego cambial ignorado</strong><br>
+      <small class="note">no modelo original da equipe</small></td>
+      <td>Lira turca parecia render +18% a.a.; com juros, rende −1,6%. Sharpe inflado de 0,50 para 0,60.</td></tr>
   <tr><td>Vazamento temporal no backtest do MARÉ</td>
       <td>49% da série de "design" era, na verdade, validação. Levou ao abandono da estratégia.</td></tr>
   <tr><td>Erro de calendário no MIYAGI <br><small class="note">no código que a própria IA escreveu</small></td>
@@ -567,6 +663,14 @@ não quebra nada e não aparece em teste.</p>
   <tr><td>Rótulos de gráfico fora da área visível</td>
       <td>Legendas posicionadas antes das curvas existirem.</td></tr>
 </table>
+
+<div class="callout good">
+  <p><strong>O caso mais instrutivo foi o do carrego</strong>, porque nenhum teste
+  o teria pego. O código estava certo, os dados estavam certos, e os seis testes
+  de robustez passaram — todos <em>com o erro dentro</em>. Ele só apareceu porque
+  um gráfico de contribuição por ativo mostrou uma concentração que não fazia
+  sentido econômico, e alguém perguntou "por quê?".</p>
+</div>
 
 <h3>Previsão registrada antes do teste</h3>
 <p>O commit <code>88392ef</code> registra a previsão de Sharpe 0,65 <em>antes</em>
@@ -614,8 +718,14 @@ o resultado.</p>
   <li>Custos são premissa (0,1%/trade), não medição contra execução real.</li>
   <li>Futuros contínuos do Yahoo têm descontinuidade de rolagem.</li>
   <li>Retornos em moeda local, sem conversão do PnL.</li>
-  <li>A carteira atual tem 20% do livro em TRY=X — concentração criada pelo
-  dimensionamento por 1/volatilidade.</li>
+  <li><strong>Carrego do G10 não corrigido</strong> — AUD, CAD, GBP, SEK e EUR não
+  têm série de juros pública completa no FRED. Diferencial de 0–5 p.p. contra o
+  dólar, erro residual de ordem menor que o da lira.</li>
+  <li><strong>Taxas de política/redesconto são proxy</strong> do custo real de
+  financiamento, não o custo exato. A ordem de grandeza é o que sustenta a
+  conclusão.</li>
+  <li>Concentração residual: TRY=X segue como maior contribuidora, com peso
+  elevado criado pelo dimensionamento por 1/volatilidade.</li>
 </ul>
 
 <div class="callout">
