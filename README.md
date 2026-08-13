@@ -476,6 +476,54 @@ força é o **câmbio** (pior classe para se retirar, −0,17).
 Nenhuma foi adotada. Quem garimpa parâmetro não termina com a configuração que
 perde em três de três dimensões testadas.
 
+### ⚠️ Concentração: o resultado depende da lira turca
+
+O gráfico de contribuição por ativo revelou o que o jackknife por classe tinha
+escondido: **TRY=X sozinho contribui 1,92% ao ano**, quatro vezes mais que o
+segundo colocado, num excesso total sobre o CDI de ~6,5%.
+
+| | Sharpe | t | CAGR |
+|---|---|---|---|
+| base (40 ativos) | 0,60 | 2,78 | 17,2% |
+| **sem TRY=X** | **0,42** | **1,95** | 15,1% |
+| sem os 4 câmbios emergentes | 0,40 | 1,86 | 15,0% |
+| sem os 3 maiores contribuidores | 0,36 | 1,68 | 14,4% |
+
+**Sem a lira, o universo de 40 rende 0,42 — praticamente igual aos 0,41 do
+universo de 8.** O ganho aparente da expansão veio quase todo de um ativo.
+
+E o t-stat cai de 2,78 para 1,95, cruzando de volta para baixo do limiar
+convencional de significância.
+
+#### O que isso faz com a previsão registrada
+
+| | Sharpe |
+|---|---|
+| previsto pela teoria de diversificação | 0,52 |
+| realizado **com** TRY=X | 0,60 |
+| realizado **sem** TRY=X | **0,42** |
+
+Descontando o ativo excepcional, o resultado fica **abaixo** do previsto — que
+era exatamente o terceiro cenário pré-registrado: *"a correlação média
+superestima a diversificação real"*. Em regimes de estresse os ativos se movem
+juntos, e a correlação média não captura isso.
+
+**Conclusão revisada, mais honesta que a anterior:** expandir o universo **não**
+entregou o ganho de diversificação que a teoria previa. O que entregou resultado
+foi a inclusão acidental de uma tendência cambial excepcional — a lira turca
+saiu de ~1,5 para ~40 por dólar ao longo do período, o cenário perfeito para
+trend following, e improvável de se repetir.
+
+#### Por que TRY=X permanece no universo
+
+Ela foi selecionada pelo funil mecânico (medoide do seu cluster), com critério
+puramente de correlação, antes de qualquer backtest. **Removê-la agora, porque
+sabemos que rendeu bem, seria overfitting ao contrário** — a mesma falha
+metodológica com o sinal invertido.
+
+Ela fica, e a sensibilidade fica reportada ao lado. Quem lê decide o quanto
+descontar.
+
 ### Ressalva de múltiplos testes
 
 Já foram testadas quatro combinações de universo × parametrização. Com
