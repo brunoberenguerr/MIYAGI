@@ -414,6 +414,68 @@ individuais capturam e uma cesta única dilui.
 num choque inflacionário específico, não é previsão de futuro. A fraqueza de
 2016–2020 continua lá, e piorou.
 
+### Robustez no universo de 40: 6 de 6 aprovados
+
+`python robustez.py --universo 40`
+
+| # | teste | 8 ativos | 40 ativos |
+|---|---|---|---|
+| A | Custos | aprovado | **aprovado** |
+| B | Janela de volatilidade | aprovado | **aprovado** (mín. 0,54) |
+| C | Sub-períodos | **REPROVADO** (2/4) | **aprovado** (3/4) |
+| D | Teto de alavancagem | aprovado | **aprovado** |
+| E | Jackknife | **REPROVADO** | **aprovado** |
+| F | Horizonte do sinal | aprovado | **aprovado** (4/4) |
+
+**As duas reprovações do universo de 8 foram corrigidas pela expansão.** Isso é
+consistente com a tese: as duas falhas eram sintomas de diversificação
+insuficiente.
+
+**C — sub-períodos.** Passou de 2/4 para 3/4:
+
+| período | Sharpe | CDI | superou? |
+|---|---|---|---|
+| 2005–2010 | 0,40 | 12,9% | sim |
+| 2011–2015 | 1,04 | 10,4% | sim |
+| **2016–2020** | **−0,23** | 7,8% | **não** |
+| 2021–2026 | 1,20 | 11,3% | sim |
+
+O buraco de 2016–2020 **continua** — e é o único que resiste a tudo que
+tentamos. Ele precisa aparecer no relatório.
+
+**E — jackknife por classe.** Nenhuma classe é indispensável:
+
+| retirando | Sharpe | Δ |
+|---|---|---|
+| commodities (17) | **0,67** | **+0,07** |
+| câmbio (10) | 0,43 | −0,17 |
+| setores (4) | 0,56 | −0,04 |
+| índices de bolsa (4) | 0,58 | −0,02 |
+| ETFs de ações (3) | 0,56 | −0,04 |
+
+### Correção a uma atribuição anterior
+
+Ao ver o salto de 2021–2026, escrevi que ele vinha das commodities (energia,
+grãos e metais em 2021–22). **O jackknife contradiz isso:** retirar as 17
+commodities *melhora* o Sharpe do período inteiro, de 0,60 para 0,67.
+
+As duas coisas podem coexistir — commodities ajudando muito em 2021–22 e
+atrapalhando em outros períodos (o colapso do petróleo em 2014–16, por
+exemplo). Mas a atribuição que fiz era especulação, não medição, e o dado
+disponível aponta no sentido contrário. O que sustenta o resultado com mais
+força é o **câmbio** (pior classe para se retirar, −0,17).
+
+### A configuração base segue não sendo a melhor
+
+| dimensão | base | melhor testado |
+|---|---|---|
+| horizonte | 12-1 → 0,60 | 9-1 → **0,68** |
+| janela de vol | 60d → 0,60 | 20d → **0,61** |
+| teto de alavancagem | 3× → 0,60 | 5× → **0,63** |
+
+Nenhuma foi adotada. Quem garimpa parâmetro não termina com a configuração que
+perde em três de três dimensões testadas.
+
 ### Ressalva de múltiplos testes
 
 Já foram testadas quatro combinações de universo × parametrização. Com

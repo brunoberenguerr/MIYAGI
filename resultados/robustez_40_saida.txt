@@ -1,0 +1,90 @@
+   60 dias foi escolha de convenção. Se só ela funciona, a escolha
+   estava fazendo trabalho que a estratégia deveria fazer.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  20 dias                  17.7%    11.1%     0.61    -19.9%    +0.02
+  40 dias                  16.6%    10.9%     0.54    -30.3%    -0.06
+  60 dias *                17.2%    10.4%     0.60    -21.6%   (base)
+  90 dias                  16.8%    10.4%     0.57    -18.0%    -0.03
+  120 dias                 16.8%    10.5%     0.57    -18.3%    -0.03
+  250 dias                 16.8%    10.8%     0.56    -19.8%    -0.04
+
+  Critério: Sharpe >= 0.25 em toda a faixa.
+  Mínimo observado: 0.54  ->  APROVADO
+
+==============================================================================
+C. SUB-PERÍODOS
+   Um bom resultado médio pode esconder um único período excepcional
+   carregando duas décadas de mediocridade.
+                            CAGR      Vol   Sharpe    Max DD      CDI
+  ------------------------------------------------------------------
+  2005-2010                17.3%    11.2%     0.40    -21.6%   12.9%  ok
+  2011-2015                21.9%    10.0%     1.04    -12.5%   10.4%  ok
+  2016-2020                 4.7%    10.2%    -0.23    -15.4%    7.8%  --
+  2021-2026                25.1%    10.2%     1.20    -12.7%   11.3%  ok
+
+  Critério: superar o CDI em pelo menos 3 dos 4 blocos.
+  Superou em 3 de 4  ->  APROVADO
+
+==============================================================================
+D. TETO DE ALAVANCAGEM
+   A base bate no teto de 3x em ~23% dos rebalanceamentos. Se o
+   resultado depende disso, o teto virou parâmetro de retorno e
+   não trava de segurança.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  teto 1x                  12.7%     4.8%     0.40    -12.0%    -0.20
+  teto 2x                  15.0%     8.4%     0.50    -20.4%    -0.10
+  teto 3x *                17.2%    10.4%     0.60    -21.6%   (base)
+  teto 5x                  18.5%    12.0%     0.63    -23.6%    +0.04
+
+  Critério: com teto 2x, ainda superar o CDI (10.7%).
+  Com teto 2x: CAGR 15.0%  ->  APROVADO
+
+==============================================================================
+E. JACKKNIFE POR CLASSE — retirando um bloco inteiro por vez
+   Com 40 ativos, tirar UM de cada vez confirmaria o óbvio. A
+   pergunta que ainda morde: o resultado depende de uma CLASSE
+   inteira? Se tirar todas as commodities derruba tudo, isto é
+   uma aposta em commodities com enfeite de diversificação.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  sem commodities (17)     18.2%    10.6%     0.67    -18.2%    +0.07
+  sem cambio (10)          15.6%    11.9%     0.43    -26.3%    -0.17
+  sem setores (4)          16.6%    10.2%     0.56    -20.2%    -0.04
+  sem acoes_indice (4)     17.0%    10.5%     0.58    -21.2%    -0.02
+  sem acoes_etf (3)        16.6%    10.1%     0.56    -24.0%    -0.04
+  sem juros (1)            17.3%    10.7%     0.60    -22.6%    -0.00
+  sem imobiliario (1)      17.0%    10.4%     0.59    -22.4%    -0.01
+
+  Critério: Sharpe >= 0.25 retirando qualquer classe.
+  Pior caso: sem cambio -> Sharpe 0.43  ->  APROVADO
+
+==============================================================================
+F. HORIZONTE DO SINAL
+   12-1 veio da literatura, não dos nossos dados. O teste é se o
+   efeito existe numa FAIXA de horizontes — momentum é um fenômeno
+   amplo, não um truque que só funciona em 12 meses.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  6-1 meses                16.5%    10.1%     0.56    -17.0%    -0.04
+  9-1 meses                18.0%    10.3%     0.68    -18.6%    +0.08
+  12-1 meses *             17.2%    10.4%     0.60    -21.6%   (base)
+  18-1 meses               15.8%    10.4%     0.48    -30.8%    -0.11
+
+  Critério: Sharpe positivo em pelo menos 3 dos 4 horizontes.
+  Positivo em 4 de 4  ->  APROVADO
+
+==============================================================================
+VEREDITO GERAL
+==============================================================================
+  A. Custos                     APROVADO
+  B. Janela de volatilidade     APROVADO
+  C. Sub-períodos               APROVADO
+  D. Teto de alavancagem        APROVADO
+  E. Jackknife de ativos        APROVADO
+  F. Horizonte do sinal         APROVADO
+
+  6 de 6 testes aprovados.
+  O resultado não depende de nenhuma escolha isolada testada.
+==============================================================================

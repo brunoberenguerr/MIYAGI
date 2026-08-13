@@ -52,6 +52,7 @@ Escrevo aqui o que conta como aprovado, antes de ver qualquer número. Sem isso,
 
 from __future__ import annotations
 
+import argparse
 from contextlib import contextmanager
 
 import numpy as np
@@ -66,6 +67,35 @@ from backtest_miyagi import (
 )
 
 SHARPE_MINIMO = 0.25          # piso declarado para os testes B e E
+
+
+def carregar_universo(qual: str):
+    """Carrega o universo de 8 ativos (original) ou o de 40 (expandido)."""
+    if qual == "8":
+        precos, cdi = carregar_dados()
+        return precos, cdi, list(precos.columns)
+    from backtest_expandido import carregar_expandido
+    precos, cdi, universo = carregar_expandido()
+    return precos, cdi, universo
+
+
+def classes_dos_ativos(universo: list[str]) -> dict[str, list[str]]:
+    """Agrupa os ativos por classe, para o jackknife do universo grande.
+
+    Com 40 ativos, retirar UM de cada vez tem pouca informação: a tese de
+    diversificação já prevê que nenhum isolado importe, e seriam 40 backtests
+    para confirmar o óbvio.
+
+    A pergunta que ainda morde é outra: o resultado depende de uma CLASSE
+    inteira? Se tirar todas as commodities derrubar tudo, a estratégia é uma
+    aposta em commodities com enfeite -- e isso o teste por ativo não revelaria.
+    """
+    from expandir_pool import CANDIDATOS
+    de_qual_classe = {t: cl for cl, lista in CANDIDATOS.items() for t in lista}
+    grupos: dict[str, list[str]] = {}
+    for a in universo:
+        grupos.setdefault(de_qual_classe.get(a, "outros"), []).append(a)
+    return grupos
 
 
 @contextmanager
@@ -113,13 +143,18 @@ def _cabecalho() -> str:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--universo", choices=["8", "40"], default="8",
+                    help="8 = universo original | 40 = universo expandido")
+    args = ap.parse_args()
+
     print("=" * 78)
-    print("MIYAGI — TESTES DE ROBUSTEZ")
+    print(f"MIYAGI — TESTES DE ROBUSTEZ (universo de {args.universo} ativos)")
     print("=" * 78)
     print("A configuração base NÃO muda em função destes resultados.")
     print("Critérios declarados antes da execução (ver docstring do arquivo).\n")
 
-    precos, cdi = carregar_dados()
+    precos, cdi, universo = carregar_universo(args.universo)
     retornos = calcular_retornos(precos)
 
     # ---- linha de base -------------------------------------------------
@@ -157,8 +192,10 @@ def main() -> None:
           f"{'APROVADO' if veredito['A'] else 'REPROVADO'}")
 
     # custo de break-even: onde a estratégia deixa de bater o CDI
+    # Passo de 0,2% (e não 0,1%): com 40 ativos cada backtest custa ~90s, e
+    # localizar o break-even com precisão de 0,1% não muda nenhuma conclusão.
     be = None
-    for c in np.arange(0.001, 0.031, 0.001):
+    for c in np.arange(0.002, 0.031, 0.002):
         m = _metricas(precos, retornos, cdi, CUSTO_POR_TRADE=float(c))
         if m["cagr"] <= cdi_cagr:
             be = float(c)
@@ -235,21 +272,40 @@ def main() -> None:
 
     # =================================================================== E
     print("\n" + "=" * 78)
-    print("E. JACKKNIFE — retirando um ativo por vez")
-    print("   A tese do trabalho é diversificação: 8 apostas pouco")
-    print("   correlacionadas. Se retirar UM ativo derruba tudo, a tese é falsa")
-    print("   e o resultado era uma aposta concentrada disfarçada.")
-    print(_cabecalho())
-    sharpes_e = []
-    for ativo in bt.ATIVOS:
-        restantes = [a for a in bt.ATIVOS if a != ativo]
-        m = _metricas(precos[restantes], retornos[restantes], cdi)
-        sharpes_e.append((ativo, m["sharpe"]))
-        print(_linha(f"sem {ativo}", m, sb))
-    pior_ativo, pior_sharpe = min(sharpes_e, key=lambda x: x[1])
+    if args.universo == "8":
+        print("E. JACKKNIFE — retirando um ativo por vez")
+        print("   A tese do trabalho é diversificação: apostas pouco")
+        print("   correlacionadas. Se retirar UM ativo derruba tudo, a tese é")
+        print("   falsa e o resultado era aposta concentrada disfarçada.")
+        print(_cabecalho())
+        sharpes_e = []
+        for ativo in universo:
+            restantes = [a for a in universo if a != ativo]
+            m = _metricas(precos[restantes], retornos[restantes], cdi)
+            sharpes_e.append((ativo, m["sharpe"]))
+            print(_linha(f"sem {ativo}", m, sb))
+    else:
+        print("E. JACKKNIFE POR CLASSE — retirando um bloco inteiro por vez")
+        print("   Com 40 ativos, tirar UM de cada vez confirmaria o óbvio. A")
+        print("   pergunta que ainda morde: o resultado depende de uma CLASSE")
+        print("   inteira? Se tirar todas as commodities derruba tudo, isto é")
+        print("   uma aposta em commodities com enfeite de diversificação.")
+        print(_cabecalho())
+        grupos = classes_dos_ativos(universo)
+        sharpes_e = []
+        for classe, membros in sorted(grupos.items(), key=lambda kv: -len(kv[1])):
+            restantes = [a for a in universo if a not in membros]
+            if len(restantes) < 5:
+                continue
+            m = _metricas(precos[restantes], retornos[restantes], cdi)
+            sharpes_e.append((classe, m["sharpe"]))
+            print(_linha(f"sem {classe} ({len(membros)})", m, sb))
+
+    pior_rot, pior_sharpe = min(sharpes_e, key=lambda x: x[1])
     veredito["E"] = pior_sharpe >= SHARPE_MINIMO
-    print(f"\n  Critério: Sharpe >= {SHARPE_MINIMO} retirando qualquer ativo.")
-    print(f"  Pior caso: sem {pior_ativo} -> Sharpe {pior_sharpe:.2f}  ->  "
+    print(f"\n  Critério: Sharpe >= {SHARPE_MINIMO} retirando qualquer "
+          f"{'ativo' if args.universo == '8' else 'classe'}.")
+    print(f"  Pior caso: sem {pior_rot} -> Sharpe {pior_sharpe:.2f}  ->  "
           f"{'APROVADO' if veredito['E'] else 'REPROVADO'}")
 
     # =================================================================== F
