@@ -1,0 +1,92 @@
+[notice] A new release of pip is available: 26.1.2 -> 26.2.1
+[notice] To update, run: C:\Users\bruno\Downloads\Meca quant\Git mecaquant\MIYAGI\.venv\Scripts\python.exe -m pip install --upgrade pip
+  [ 3 ativos]  VNQ         
+              representa: IYR, RWR
+  [ 2 ativos]  EWJ         
+              representa: ^N225
+  [ 2 ativos]  NG=F        
+              representa: UNG
+  [ 2 ativos]  ZL=F        
+              representa: ZS=F
+  [ 2 ativos]  ^AXJO       
+              representa: ^NZ50
+  [ 1 ativos]  BRL=X         <- ja no universo atual
+  [ 1 ativos]  CAD=X       
+  [ 1 ativos]  CC=F        
+  [ 1 ativos]  CT=F        
+  [ 1 ativos]  DBA         
+  [ 1 ativos]  GBPUSD=X    
+  [ 1 ativos]  HE=F        
+  [ 1 ativos]  HG=F        
+  [ 1 ativos]  INR=X       
+  [ 1 ativos]  JPY=X         <- ja no universo atual
+  [ 1 ativos]  KC=F        
+  [ 1 ativos]  LE=F        
+  [ 1 ativos]  MXN=X       
+  [ 1 ativos]  OJ=F        
+  [ 1 ativos]  PA=F        
+  [ 1 ativos]  PL=F        
+  [ 1 ativos]  SB=F        
+  [ 1 ativos]  TRY=X       
+  [ 1 ativos]  XLE         
+  [ 1 ativos]  XLP         
+  [ 1 ativos]  XLU         
+  [ 1 ativos]  XLV         
+  [ 1 ativos]  ZAR=X       
+  [ 1 ativos]  ZC=F        
+  [ 1 ativos]  ZW=F        
+  [ 1 ativos]  ^BSESN      
+  [ 1 ativos]  ^JKSE       
+
+================================================================================
+UNIVERSO ATUAL vs EXPANDIDO
+================================================================================
+                           ativos    ρ médio    apostas efetivas
+  --------------------------------------------------------------
+  atual                         8      0.020                 7.0
+  expandido                    40      0.065                11.3
+
+  Novos ativos (36):
+    AUDUSD=X, BZ=F, CAD=X, CC=F, CT=F, DBA, EFA, EWJ
+    EWT, GBPUSD=X, HE=F, HG=F, INR=X, KC=F, LE=F, MXN=X
+    NG=F, OJ=F, PA=F, PL=F, SB=F, SEK=X, TRY=X, VNQ
+    XLE, XLP, XLU, XLV, ZAR=X, ZC=F, ZL=F, ZW=F
+    ^AXJO, ^BSESN, ^HSI, ^JKSE
+
+  Do universo atual, NÃO foram selecionados: ^BVSP, SPY, EURUSD=X, DBC
+    (foram absorvidos por clusters cujo medoide é outro ativo)
+
+================================================================================
+PREVISÃO REGISTRADA ANTES DO BACKTEST
+================================================================================
+
+  A teoria de portfólio liga o Sharpe ao número de apostas INDEPENDENTES:
+
+        Sharpe  ≈  IR × raiz(N_efetivo)
+
+  Se o IR (a qualidade do sinal por aposta) não mudar ao trocar de universo,
+  então o Sharpe deve escalar pela raiz da razão entre as apostas efetivas:
+
+        Sharpe_novo  =  0.51 × raiz(11.3 / 7.0)
+                     =  0.51 × 1.273
+                     =  0.65
+
+  ESTA É A PREVISÃO. O backtest ainda NÃO foi rodado com o universo novo.
+
+  Como interpretar o resultado quando ele sair:
+
+    perto de 0.65      o mecanismo está entendido. É o melhor
+                       resultado possível -- prever antes e acertar vale
+                       muito mais que um número alto sem explicação.
+
+    muito ACIMA        sinal de alerta. Se diversificar entregasse mais do
+                       que a teoria permite, provavelmente há erro no
+                       backtest ou viés na seleção.
+
+    muito ABAIXO       a diversificação medida pela correlação não se
+                       traduziu em diversificação real. Também é achado:
+                       significa que a correlação média subestima a
+                       dependência entre os ativos (caudas, regimes).
+
+  Seleção gravada: dados/universo_expandido.txt (40 ativos)
+  Previsão a bater: Sharpe 0.65
