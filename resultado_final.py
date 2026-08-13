@@ -38,6 +38,7 @@ from backtest_miyagi import calcular_metricas, calcular_retornos, rodar_backtest
 from funil_expandido import (ATUAIS, CORTE_CLUSTER, apostas_efetivas,
                              correlacao_pareada, elegiveis, medoide,
                              retornos_mensais)
+from dados_miyagi import alinhar_ao_calendario, carregar_cdi, carregar_pool_oficial
 
 AQUI = Path(__file__).resolve().parent
 
@@ -61,8 +62,7 @@ def roda_funil(precos: pd.DataFrame) -> tuple[list[str], float, float]:
 
 
 def prepara(precos: pd.DataFrame, cdi: pd.Series, universo: list[str]):
-    calendario = cdi.index
-    p = precos[universo].ffill(limit=5).reindex(calendario).ffill(limit=5)
+    p = alinhar_ao_calendario(precos[universo], cdi.index)
     return p, calcular_retornos(p)
 
 
@@ -71,11 +71,10 @@ def main() -> None:
     print("MIYAGI — RESULTADO FINAL COM CARREGO CORRIGIDO")
     print("=" * 80)
 
-    cdi = pd.read_csv(AQUI / "dados" / "cdi.csv", index_col=0, parse_dates=True)
-    cdi = (cdi.iloc[:, 0].sort_index() / 100.0)
+    cdi = carregar_cdi()
 
     antes = pd.read_csv(AQUI / "dados" / "pool_expandido.csv", index_col=0, parse_dates=True)
-    depois = pd.read_csv(AQUI / "dados" / "pool_carrego.csv", index_col=0, parse_dates=True)
+    depois = carregar_pool_oficial()
 
     print("\n[1/3] Refazendo o funil sobre o painel corrigido...", flush=True)
     sel_novo, neff_novo, rho_novo = roda_funil(depois)
@@ -134,7 +133,7 @@ def main() -> None:
     print(f"\n  Impacto da correção: {queda:+.2f} de Sharpe")
 
     # --- contribuição da lira, agora ------------------------------------
-    pesos = res_novo["pesos"].reindex(res_novo["retornos"].index).ffill().fillna(0.0)
+    pesos = res_novo["pesos_diarios"].reindex(res_novo["retornos"].index).fillna(0.0)
     contrib = (pesos * r_novo.reindex(res_novo["retornos"].index)[sel_novo].fillna(0.0))
     anos = (res_novo["retornos"].index[-1] - res_novo["retornos"].index[0]).days / 365.25
     c_ano = (contrib.sum() / anos).sort_values(ascending=False)
@@ -152,6 +151,16 @@ def main() -> None:
         pos = list(c_ano.index).index("TRY=X") + 1
         print(f"\n  TRY=X: {c_ano['TRY=X']:+.2%} a.a. — {pos}º de {len(c_ano)}")
         print(f"  (antes era +1,92% a.a. e o 1º colocado)")
+
+    exposicao_ausente = res_novo["exposicao_retorno_ausente"]
+    print("\n  QUALIDADE DE DADOS DURANTE POSIÇÕES")
+    print(f"  Dias com posição e algum retorno ausente: "
+          f"{int((exposicao_ausente > 0).sum())} "
+          f"({(exposicao_ausente > 0).mean():.1%} dos dias)")
+    print(f"  Maior exposição sem retorno observável: "
+          f"{exposicao_ausente.max():.1%}")
+    print("  Nesses dias o P&L do ativo é mantido em zero e a exposição é")
+    print("  marcada para auditoria; isto não equivale a uma cotação observada.")
 
     # --- sub-períodos ----------------------------------------------------
     print("\n" + "=" * 80)

@@ -1,0 +1,69 @@
+================================================================================
+MIYAGI — RESULTADO FINAL COM CARREGO CORRIGIDO
+================================================================================
+
+[1/3] Refazendo o funil sobre o painel corrigido...
+
+                               ativos    ρ médio   apostas efetivas
+  -----------------------------------------------------------------
+  sem carrego (antes)              40      0.065               11.3
+  com carrego (corrigido)          40      0.066               11.2
+
+  A seleção não mudou — o carrego é um drift suave e quase não
+  altera as correlações, que medem co-movimento.
+
+  TRY=X ainda está no universo? SIM
+
+[2/3] Backtest sobre o painel corrigido...
+[3/3] Backtest sobre o painel antigo, para comparação...
+
+================================================================================
+RESULTADO
+================================================================================
+                                            CAGR     Vol   Sharpe      t   Max DD
+  ------------------------------------------------------------------------------
+  referências (universo de 8 ativos, sem carrego)
+    base 12-1                              15.0%   11.0%     0.41   1.88   -20.4%
+
+  universo expandido
+    SEM carrego (o resultado anterior)     16.9%   10.4%     0.58   2.70   -20.1%
+    COM carrego (corrigido)                15.6%   10.5%     0.47   2.19   -24.1%
+
+  Impacto da correção: -0.11 de Sharpe
+
+================================================================================
+CONTRIBUIÇÃO POR ATIVO — a concentração sumiu?
+================================================================================
+  5 maiores:
+    TRY=X         +1.16%
+    JPY=X         +0.58%
+    EWT           +0.45%
+    GLD           +0.44%
+    ZL=F          +0.42%
+  5 menores:
+    CT=F          -0.11%
+    ZC=F          -0.15%
+    SEK=X         -0.16%
+    AUDUSD=X      -0.26%
+    HE=F          -0.64%
+
+  TRY=X: +1.16% a.a. — 1º de 40
+  (antes era +1,92% a.a. e o 1º colocado)
+
+  QUALIDADE DE DADOS DURANTE POSIÇÕES
+  Dias com posição e algum retorno ausente: 330 (6.1% dos dias)
+  Maior exposição sem retorno observável: 44.2%
+  Nesses dias o P&L do ativo é mantido em zero e a exposição é
+  marcada para auditoria; isto não equivale a uma cotação observada.
+
+================================================================================
+SUB-PERÍODOS
+================================================================================
+  período            CAGR   Sharpe      CDI
+  -----------------------------------------------
+  2005-2010         20.1%     0.61    12.9%    ok
+  2011-2015         16.3%     0.57    10.4%    ok
+  2016-2020          2.0%    -0.49     7.8%    --
+  2021-2026         23.8%     1.10    11.3%    ok
+
+  Gravados: resultados/serie_final.csv, dados/universo_final.txt

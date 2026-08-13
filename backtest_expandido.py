@@ -41,6 +41,7 @@ from backtest_miyagi import (
     calcular_metricas, calcular_retornos, rodar_backtest, retorno_por_ano,
 )
 from treino_parametros import HORIZONTES, parametro, walk_forward
+from dados_miyagi import carregar_dados_oficiais
 
 AQUI = Path(__file__).resolve().parent
 
@@ -50,21 +51,14 @@ N_EFF_ATUAL, N_EFF_NOVO = 7.0, 11.3
 
 
 def carregar_expandido():
-    """Carrega o pool expandido, restrito aos 40 ativos que o funil selecionou."""
-    precos = pd.read_csv(AQUI / "dados" / "pool_expandido.csv",
-                         index_col=0, parse_dates=True)
-    universo = (AQUI / "dados" / "universo_expandido.txt").read_text(
-        encoding="utf-8").split()
-    universo = [a for a in universo if a in precos.columns]
+    """Compatibilidade: carrega sempre o painel e o universo oficiais.
 
-    cdi = pd.read_csv(AQUI / "dados" / "cdi.csv", index_col=0, parse_dates=True)
-    cdi = cdi.iloc[:, 0].sort_index() / 100.0
-
-    # Mesmo tratamento de calendário do modelo atual: dias úteis do CDI.
-    calendario = cdi.index
-    precos = precos[universo].ffill(limit=5).reindex(calendario).ffill(limit=5)
-    cdi = cdi.reindex(calendario).ffill().fillna(0.0)
-    return precos, cdi, universo
+    O nome histórico da função foi preservado para não quebrar scripts antigos,
+    mas ela não acessa mais ``pool_expandido.csv``. Isso elimina a bifurcação em
+    que robustez e figuras usavam câmbio spot enquanto o resultado final usava
+    o painel corrigido por carrego.
+    """
+    return carregar_dados_oficiais()
 
 
 def main() -> None:
@@ -152,9 +146,10 @@ def main() -> None:
       erro ............................... {erro:+.2f}
 """)
     if abs(erro) <= 0.10:
-        print("  VEREDITO: previsão CONFIRMADA (erro <= 0,10).")
-        print("  O ganho de diversificação se comportou como a teoria previa.")
-        print("  Prever antes e acertar vale mais que qualquer numero isolado.")
+        print("  VEREDITO: resultado dentro da banda registrada.")
+        print("  Isso seria confirmação apenas se os dados e o estimando fossem")
+        print("  os mesmos do registro original. Correções posteriores exigem")
+        print("  rotular a comparação como consistência pós-hoc.")
     elif erro > 0.10:
         print("  VEREDITO: resultado ACIMA do previsto.")
         print("  Isso NAO deve ser comemorado sem investigar. Diversificar não")

@@ -40,6 +40,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from dados_miyagi import alinhar_ao_calendario, carregar_cdi, carregar_pool_oficial
+
 AQUI = Path(__file__).resolve().parent
 
 
@@ -164,18 +166,20 @@ HISTORICO_MINIMO_DIAS = 252
 # preencher demais seria inventar dado.
 
 def carregar_dados() -> tuple[pd.DataFrame, pd.Series]:
-    """Lê os preços dos 8 ativos e a série do CDI (nosso 'dinheiro parado')."""
+    """Lê os 8 ativos do painel oficial e o CDI.
+
+    Inclusive nesta versão reduzida, moedas vêm do painel corrigido por
+    carrego. Assim, nenhum script volta silenciosamente às séries spot.
+    """
 
     # --- Preços diários ---
-    precos = pd.read_csv(AQUI / "dados" / "prices.csv", index_col=0, parse_dates=True)
-    precos = precos[ATIVOS].sort_index()
+    precos = carregar_pool_oficial()[ATIVOS]
 
     # --- CDI ---
     # O arquivo traz o CDI em PORCENTO ao dia (ex.: 0.088 significa 0,088%).
     # Dividimos por 100 para virar fração decimal (0.00088), que é o formato
     # com que a matemática financeira trabalha.
-    cdi = pd.read_csv(AQUI / "dados" / "cdi.csv", index_col=0, parse_dates=True)
-    cdi = cdi.iloc[:, 0].sort_index() / 100.0
+    cdi = carregar_cdi()
 
     # --- O CALENDÁRIO OFICIAL (detalhe que parece burocrático e não é) ------
     # O arquivo de preços tem ~290 datas por ano, não ~252. O motivo: o câmbio
@@ -197,7 +201,7 @@ def carregar_dados() -> tuple[pd.DataFrame, pd.Series]:
     # Primeiro tapa buracos de feriado pontual, depois recorta no calendário
     # oficial. A ordem importa: assim um preço de sexta-feira sobrevive para
     # cobrir uma segunda de feriado, mas o sábado não vira um "pregão".
-    precos = precos.ffill(limit=5).reindex(calendario).ffill(limit=5)
+    precos = alinhar_ao_calendario(precos, calendario)
     cdi = cdi.reindex(calendario).ffill().fillna(0.0)
 
     return precos, cdi
@@ -217,7 +221,11 @@ def calcular_retornos(precos: pd.DataFrame) -> pd.DataFrame:
     série na SUA moeda de origem, sem converter o resultado para reais. É o
     padrão dos artigos de momentum com futuros.
     """
-    return precos.pct_change()
+    # O argumento é deliberadamente explícito. O padrão antigo do pandas
+    # preenchia NaN antes de calcular a variação, criando retornos de
+    # "reabertura" enormes após lacunas longas. O padrão novo não deve mudar o
+    # resultado quando a versão da biblioteca mudar.
+    return precos.pct_change(fill_method=None)
 
 
 # ==========================================================================
@@ -257,6 +265,12 @@ def calcular_sinal(precos: pd.DataFrame, data: pd.Timestamp) -> pd.Series:
 
     sinais = {}
     for ativo in precos.columns:
+        # Sem cotação utilizável na data da decisão, o instrumento não pode
+        # receber uma nova posição. Não reutilizamos silenciosamente uma
+        # cotação antiga além do limite definido na preparação dos dados.
+        if data not in precos.index or pd.isna(precos.at[data, ativo]):
+            sinais[ativo] = 0.0
+            continue
         serie = ate_agora[ativo].dropna()
 
         # Ativo novo demais? Fica de fora até ter histórico suficiente.
@@ -488,27 +502,44 @@ def aplicar_alvo_de_risco(pesos: pd.Series, vol_carteira: float) -> pd.Series:
 #  estratégia "perdia" para o CDI por um artefato contábil, não por desempenho.)
 
 def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
-                   cdi: pd.Series, estimador: str | None = None) -> dict:
-    """Roda a simulação completa e devolve as séries de resultado."""
+                   cdi: pd.Series, estimador: str | None = None,
+                   universo_por_data: dict[pd.Timestamp, list[str]] | None = None,
+                   inicio: str | pd.Timestamp | None = None) -> dict:
+    """Roda a simulação completa e devolve as séries de resultado.
+
+    ``universo_por_data`` é opcional e serve aos testes point-in-time. Cada
+    lista passa a valer na sua data e continua válida até a próxima. O padrão
+    mantém todas as colunas, reproduzindo a estratégia estática histórica.
+    """
 
     # Datas de rebalanceamento: último dia útil de cada mês, a partir de 2005.
-    datas_mes = retornos.loc[INICIO:].resample(REBALANCEIA).last().index
+    data_inicio = inicio if inicio is not None else INICIO
+    datas_mes = retornos.loc[data_inicio:].resample(REBALANCEIA).last().index
     # Garante que cada data existe no calendário real de pregões.
     datas_rebal = [retornos.index[retornos.index <= d][-1]
                    for d in datas_mes if (retornos.index <= d).any()]
     datas_rebal = sorted(set(datas_rebal))
 
-    pesos_anteriores = pd.Series(0.0, index=precos.columns)
+    # Exposição efetiva imediatamente antes de cada rebalanceamento. Ela
+    # deriva com os preços entre rebalanceamentos; mantê-la igual ao alvo seria
+    # simular, sem custo, um rebalanceamento diário que a regra não prevê.
+    pesos_atuais = pd.Series(0.0, index=precos.columns)
 
     retorno_diario = {}      # resultado líquido, dia a dia
     log_pesos = {}           # pesos em cada rebalanceamento (para auditoria)
     log_giro = {}            # quanto foi negociado
     log_custo = {}           # quanto custou
     log_exposicao = {}       # exposição total (soma dos módulos dos pesos)
+    log_pesos_diarios = {}   # exposição efetiva antes do retorno de cada dia
+    log_faltantes = {}       # exposição cujo retorno diário estava ausente
 
     for i, data in enumerate(datas_rebal):
         # ---- 1, 2 e 3: decidir a carteira -----------------------------
         sinal = calcular_sinal(precos, data)
+        if universo_por_data is not None:
+            vigentes = [d for d in universo_por_data if d <= data]
+            permitidos = set(universo_por_data[max(vigentes)]) if vigentes else set()
+            sinal.loc[~sinal.index.isin(permitidos)] = 0.0
         vol = calcular_volatilidade(retornos, data, estimador)
         pesos_brutos = calcular_pesos_brutos(sinal, vol)
         vol_cart = volatilidade_da_carteira(retornos, pesos_brutos, data, estimador)
@@ -519,7 +550,7 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
         # "Giro" é o quanto mudou da carteira antiga para a nova. Se um peso
         # foi de 0,20 para 0,35, giramos 0,15 naquele ativo. Só pagamos pelo
         # que efetivamente mudou — manter posição não custa nada.
-        giro = (pesos - pesos_anteriores).abs().sum()
+        giro = (pesos - pesos_atuais).abs().sum()
         custo = giro * CUSTO_POR_TRADE
 
         log_pesos[data] = pesos
@@ -529,6 +560,7 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
 
         # O custo é debitado no próprio dia da execução.
         retorno_diario[data] = retorno_diario.get(data, 0.0) - custo
+        pesos_atuais = pesos.copy()
 
         # ---- 5: carregar as posições até o próximo rebalanceamento -----
         proxima = datas_rebal[i + 1] if i + 1 < len(datas_rebal) else retornos.index[-1]
@@ -538,16 +570,27 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
         periodo = retornos.loc[(retornos.index > data) & (retornos.index <= proxima)]
 
         for dia, retornos_do_dia in periodo.iterrows():
+            log_pesos_diarios[dia] = pesos_atuais.copy()
+
+            faltantes = retornos_do_dia.isna() & (pesos_atuais.abs() > 0)
+            log_faltantes[dia] = float(pesos_atuais[faltantes].abs().sum())
+
             # Resultado das posições: peso × retorno de cada ativo, somado.
             # (fillna(0) trata feriado de um mercado específico como "não
             #  aconteceu nada nele naquele dia", que é o correto.)
-            resultado_posicoes = float((pesos * retornos_do_dia.fillna(0.0)).sum())
+            retornos_validos = retornos_do_dia.fillna(0.0)
+            resultado_posicoes = float((pesos_atuais * retornos_validos).sum())
 
             # Retorno total = CDI (dinheiro parado rendendo) + posições
             juros_do_dia = float(cdi.get(dia, 0.0))
-            retorno_diario[dia] = retorno_diario.get(dia, 0.0) + resultado_posicoes + juros_do_dia
+            total_dia = resultado_posicoes + juros_do_dia
+            retorno_diario[dia] = retorno_diario.get(dia, 0.0) + total_dia
 
-        pesos_anteriores = pesos
+            # Mantemos quantidades/notionais entre rebalanceamentos. Após a
+            # oscilação do ativo e do patrimônio, os pesos efetivos mudam.
+            denominador = 1.0 + total_dia
+            if denominador > 0:
+                pesos_atuais = pesos_atuais * (1.0 + retornos_validos) / denominador
 
     serie = pd.Series(retorno_diario).sort_index()
 
@@ -557,6 +600,8 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
         "giro": pd.Series(log_giro).sort_index(),
         "custos": pd.Series(log_custo).sort_index(),
         "exposicao": pd.Series(log_exposicao).sort_index(),
+        "pesos_diarios": pd.DataFrame(log_pesos_diarios).T.sort_index(),
+        "exposicao_retorno_ausente": pd.Series(log_faltantes).sort_index(),
     }
 
 

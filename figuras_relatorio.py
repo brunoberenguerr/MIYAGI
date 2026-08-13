@@ -25,10 +25,13 @@ import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, fcluster, linkage
 from scipy.spatial.distance import squareform
 
-from backtest_miyagi import DIAS_UTEIS_ANO, calcular_metricas, calcular_retornos, rodar_backtest
+from backtest_miyagi import (DIAS_UTEIS_ANO, calcular_metricas,
+                             calcular_retornos, carregar_dados,
+                             rodar_backtest)
 from backtest_expandido import carregar_expandido
 from funil_expandido import (CORTE_CLUSTER, correlacao_pareada, elegiveis,
                              retornos_mensais)
+from dados_miyagi import carregar_pool_oficial
 
 AQUI = Path(__file__).resolve().parent
 SAIDA = AQUI / "resultados"
@@ -37,8 +40,7 @@ NAVY, CINZA, VERM, VERDE = "#1B4965", "#8D99AE", "#C1121F", "#1A5E39"
 
 def fig_dendrograma():
     """A árvore que transformou 101 candidatos em 40 apostas independentes."""
-    precos = pd.read_csv(AQUI / "dados" / "pool_expandido.csv",
-                         index_col=0, parse_dates=True)
+    precos = carregar_pool_oficial()
     apt = elegiveis(precos)
     corr = correlacao_pareada(retornos_mensais(precos[apt]))
 
@@ -209,13 +211,14 @@ def main() -> None:
     ibov = pd.read_csv(AQUI / "dados" / "prices.csv", index_col=0, parse_dates=True)
     ibov = calcular_retornos(ibov)["^BVSP"].reindex(r40.index).fillna(0.0)
     cdi_al = cdi.reindex(r40.index).fillna(0.0)
-    r8 = pd.read_csv(SAIDA / "serie_miyagi.csv", index_col=0,
-                     parse_dates=True)["retorno_diario"].reindex(r40.index).fillna(0.0)
+    p8, cdi8 = carregar_dados()
+    r8 = rodar_backtest(p8, calcular_retornos(p8), cdi8)["retornos"]
+    r8 = r8.reindex(r40.index).fillna(0.0)
 
     print("[4/5] figuras de resultado")
     fig_patrimonio(r40, r8, ibov, cdi_al)
 
-    pesos_diarios = res["pesos"].reindex(r40.index).ffill().fillna(0.0)
+    pesos_diarios = res["pesos_diarios"].reindex(r40.index).fillna(0.0)
     anos = (r40.index[-1] - r40.index[0]).days / 365.25
     contrib = (pesos_diarios * retornos.reindex(r40.index)[universo].fillna(0.0)).sum() / anos
     fig_por_ativo(contrib)

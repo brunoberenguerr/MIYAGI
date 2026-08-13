@@ -5,6 +5,9 @@ __pycache__/
 
 # Resultados gerados pelo backtest (regeneráveis: rode backtest_miyagi.py)
 resultados/*.csv
+!resultados/auditoria_*.csv
+!resultados/carteira_atual.csv
+!resultados/contribuicao_por_ativo.csv
 
 # Sistema
 .DS_Store

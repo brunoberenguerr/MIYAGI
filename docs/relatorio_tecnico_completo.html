@@ -93,9 +93,9 @@ primeiro lugar.</p>
 
 <div class="grid">
   <div class="card"><div class="l">Universo</div><div class="k">40</div><div class="d">de 114 candidatos</div></div>
-  <div class="card"><div class="l">CAGR</div><div class="k">15,9%</div><div class="d">CDI: 10,7%</div></div>
-  <div class="card"><div class="l">Sharpe</div><div class="k">0,50</div><div class="d">t = 2,30</div></div>
-  <div class="card"><div class="l">Max DD</div><div class="k">−23,0%</div><div class="d">Ibovespa: −60%</div></div>
+  <div class="card"><div class="l">CAGR</div><div class="k">15,6%</div><div class="d">CDI: 10,7%</div></div>
+  <div class="card"><div class="l">Sharpe</div><div class="k">0,47</div><div class="d">t ingênuo = 2,19</div></div>
+  <div class="card"><div class="l">Max DD</div><div class="k">−24,1%</div><div class="d">Ibovespa: −60%</div></div>
 </div>
 
 <p><small class="note">Números <strong>com o carrego cambial corrigido</strong>
@@ -103,12 +103,12 @@ primeiro lugar.</p>
 
 <h3>As cinco conclusões que definem o trabalho</h3>
 <ol>
-  <li><strong>A estratégia funciona</strong>, com Sharpe de 0,50 e significância
-  estatística (t = 2,30) — modesto, na faixa baixa da literatura.</li>
-  <li><strong>Ela parou de bater o CDI entre 2016 e 2020</strong>, e a causa foi
-  medida: as tendências encurtaram 40% (de 11,5 para 6,9 meses).</li>
+  <li><strong>A estratégia tem resultado positivo</strong>, com Sharpe de 0,47;
+  a evidência é marginal (t HAC entre 1,91 e 1,99).</li>
+  <li><strong>Ela parou de bater o CDI entre 2016 e 2020</strong>. A duração
+  estimada das tendências também caiu, mas essa associação não prova causa.</li>
   <li><strong>Expandir o universo de 8 para 40 ativos ajudou de verdade</strong>
-  (Sharpe 0,36 → 0,50) e passou a robustez de 4/6 para 6/6.</li>
+  (Sharpe 0,36 → 0,47 na estimativa auditada) e passou a robustez de 4/6 para 6/6.</li>
   <li><strong>Encontramos e corrigimos um erro que inflava o resultado:</strong> o
   backtest ignorava os juros no câmbio. A lira turca parecia render +18% ao ano;
   com o carrego correto, rende −1,6%.</li>
@@ -117,12 +117,18 @@ primeiro lugar.</p>
   bonito.</li>
 </ol>
 
-<div class="callout good">
-  <p><strong>A previsão registrada se confirmou.</strong> Antes de expandir o
-  universo, foi registrado no repositório (commit <code>88392ef</code>) que o
-  Sharpe deveria escalar pela raiz das apostas efetivas. Nos dados corrigidos:
-  previsto 0,455, realizado <strong>0,50</strong> — dentro da banda de ±0,10
-  declarada antes de qualquer resultado existir.</p>
+<div class="callout warn">
+  <p><strong>A previsão original não foi confirmada.</strong> O commit
+  <code>88392ef</code> registrou Sharpe 0,65; o realizado daquela etapa foi 0,48,
+  fora da banda de ±0,10. Recalcular a fórmula depois da correção de dados é uma
+  verificação de consistência pós-hoc, não uma nova previsão independente.</p>
+</div>
+
+<div class="callout bad">
+  <p><strong>Limite de validade.</strong> O funil histórico usou correlações e
+  elegibilidade até 2026. Portanto 2005–2026 não é integralmente fora da
+  amostra. A seleção anual defasada só pode começar em 2016 e produz Sharpe
+  0,34; os dados públicos ainda não têm vintages arquivados.</p>
 </div>
 
 <div class="callout bad">
@@ -146,7 +152,7 @@ primeiro lugar.</p>
       <td>Sharpe 0,60 <small class="note">(inflado)</small></td></tr>
   <tr class="hl"><td><strong>MIYAGI v4</strong></td>
       <td><strong>v3 com o carrego cambial corrigido</strong></td>
-      <td><strong>Sharpe 0,50</strong></td></tr>
+      <td><strong>Sharpe 0,47 (auditado)</strong></td></tr>
 </table>
 
 <h3>Por que o MARÉ foi descartado</h3>
@@ -365,8 +371,8 @@ custo = |peso_novo - peso_antigo|.soma() × 0,1%
 <table>
   <tr><th></th><th class="num">CAGR</th><th class="num">Vol</th><th class="num">Sharpe*</th>
       <th class="num">t</th><th class="num">Max DD</th></tr>
-  <tr class="hl"><td><strong>MIYAGI · 40 ativos</strong></td><td class="num">15,9%</td>
-      <td class="num">10,5%</td><td class="num">0,50</td><td class="num">2,30</td><td class="num">−23,0%</td></tr>
+  <tr class="hl"><td><strong>MIYAGI · 40 ativos</strong></td><td class="num">15,6%</td>
+      <td class="num">10,5%</td><td class="num">0,47</td><td class="num">2,19</td><td class="num">−24,1%</td></tr>
   <tr><td>MIYAGI · 8 ativos</td><td class="num">14,4%</td><td class="num">11,0%</td>
       <td class="num">0,36</td><td class="num">1,64</td><td class="num">−20,4%</td></tr>
   <tr><td>Ibovespa</td><td class="num">9,7%</td><td class="num">25,7%</td>
@@ -379,15 +385,14 @@ cambial corrigido nos dois universos</strong>. Período 2005–2026 (21,5 anos),
 259 rebalanceamentos, exposição média 2,5×, volatilidade realizada de 10,5%
 contra alvo de 10%.</small></p>
 
-<div class="callout">
-  <p><strong>Só a versão de 40 ativos mantém significância estatística.</strong>
-  Com t = 2,30 o resultado é distinguível de zero pela convenção usual (t &gt; 2);
-  o universo de 8, com t = 1,64, não é. A expansão não melhorou apenas o número —
-  mudou a qualidade da evidência.</p>
+<div class="callout warn">
+  <p><strong>A evidência estatística é marginal.</strong> O t ingênuo é 2,19,
+  mas Newey–West fica entre 1,91 e 1,99. Com Bonferroni para apenas quatro testes,
+  o p bilateral é 0,114. Não se afirma significância robusta.</p>
 </div>
 
 <figure>
-  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/patrimonio_40.png" alt="Patrimônio">
+  <img src="../resultados/patrimonio_40.png" alt="Patrimônio">
   <figcaption>Patrimônio acumulado em escala logarítmica. Faixas sombreadas:
   crise de 2008, COVID e o choque inflacionário de 2021–22.</figcaption>
 </figure>
@@ -395,8 +400,8 @@ contra alvo de 10%.</small></p>
 <h2 class="pb">8. Desempenho por ativo — e o achado que muda a leitura</h2>
 
 <figure>
-  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/desempenho_por_ativo.png" alt="Desempenho por ativo">
-  <figcaption>Contribuição anualizada de cada ativo. 31 de 40 contribuíram
+  <img src="../resultados/desempenho_por_ativo.png" alt="Desempenho por ativo">
+  <figcaption>Contribuição anualizada de cada ativo. 29 de 40 contribuíram
   positivamente — mas repare na escala: <strong>TRY=X está quatro vezes acima do
   segundo colocado</strong>.</figcaption>
 </figure>
@@ -415,11 +420,10 @@ Mas para ficar comprado em USD/TRY (vendido em lira) é preciso tomar lira
 emprestada e <strong>pagar a taxa de juros turca</strong> — que chegou a 40–50%
 ao ano em 2023–2025, contra 0–5,5% nos EUA. Esse custo nunca era cobrado.</p>
 
-<p>Há um argumento teórico que fecha o caso. Pela <strong>paridade descoberta de
-juros</strong>, moedas de juro alto se desvalorizam aproximadamente pelo
-diferencial de juros. O fato de a lira ter caído 18% ao ano é, ele mesmo,
-evidência de que o diferencial era dessa ordem — ganho e custo se cancelam quase
-por construção.</p>
+<p>A <strong>paridade coberta de juros</strong> liga o diferencial ao preço a
+termo. A paridade descoberta é hipótese sobre desvalorização esperada, não uma
+identidade. Os resultados abaixo vêm dos proxies de taxas usados no projeto e
+não são apresentados como confirmação de uma lei econômica.</p>
 
 <h4>Verificação prévia: os dados estavam corretos</h4>
 <p>Antes de concluir por erro de modelagem, a série foi auditada: USD/TRY de 1,34

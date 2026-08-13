@@ -49,6 +49,8 @@ import pandas as pd
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
+from dados_miyagi import carregar_pool_oficial
+
 AQUI = Path(__file__).resolve().parent
 
 CORTE_CLUSTER = 0.35        # idêntico ao funil original: junta ρ > 0,65
@@ -125,8 +127,7 @@ def main() -> None:
     print("FUNIL DE SELEÇÃO — pool expandido")
     print("=" * 80)
 
-    precos = pd.read_csv(AQUI / "dados" / "pool_expandido.csv",
-                         index_col=0, parse_dates=True)
+    precos = carregar_pool_oficial()
     print(f"Pool: {precos.shape[1]} candidatos | "
           f"{precos.index.min():%Y-%m} a {precos.index.max():%Y-%m}")
 

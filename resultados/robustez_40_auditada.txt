@@ -1,0 +1,117 @@
+==============================================================================
+MIYAGI — TESTES DE ROBUSTEZ (universo de 40 ativos)
+==============================================================================
+A configuração base NÃO muda em função destes resultados.
+Critérios declarados antes da execução (ver docstring do arquivo).
+
+BASE: CAGR 15.6% | vol 10.5% | Sharpe 0.47 | max DD -24.1%
+CDI no mesmo período: 10.7% a.a.  (superar isto é o mínimo para a estratégia existir)
+
+==============================================================================
+A. SENSIBILIDADE A CUSTOS
+   Se o resultado evapora com custo um pouco maior, ele não
+   sobreviveria à execução real.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  0.05% por trade          16.3%    10.5%     0.53    -22.5%    +0.06
+  0.10% por trade *        15.6%    10.5%     0.47    -24.1%   (base)
+  0.20% por trade          14.3%    10.5%     0.36    -27.7%    -0.11
+  0.50% por trade          10.4%    10.6%     0.03    -38.2%    -0.45
+  * configuração base
+
+  Critério: superar o CDI (10.7%) com o DOBRO do custo.
+  Com 0,2%/trade: CAGR 14.3%  ->  APROVADO
+  Custo de break-even: ~0.6% por trade (6x o custo assumido) — acima disso, perde do CDI.
+
+==============================================================================
+B. JANELA DE VOLATILIDADE
+   60 dias foi escolha de convenção. Se só ela funciona, a escolha
+   estava fazendo trabalho que a estratégia deveria fazer.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  20 dias                  15.7%    11.1%     0.46    -30.7%    -0.02
+  40 dias                  14.9%    10.9%     0.40    -28.8%    -0.07
+  60 dias *                15.6%    10.5%     0.47    -24.1%   (base)
+  90 dias                  15.5%    10.5%     0.46    -25.2%    -0.01
+  120 dias                 15.6%    10.5%     0.47    -25.5%    -0.01
+  250 dias                 15.7%    10.7%     0.47    -25.4%    -0.01
+
+  Critério: Sharpe >= 0.25 em toda a faixa.
+  Mínimo observado: 0.40  ->  APROVADO
+
+==============================================================================
+C. SUB-PERÍODOS
+   Um bom resultado médio pode esconder um único período excepcional
+   carregando duas décadas de mediocridade.
+                            CAGR      Vol   Sharpe    Max DD      CDI
+  ------------------------------------------------------------------
+  2005-2010                20.1%    11.4%     0.61    -19.8%   12.9%  ok
+  2011-2015                16.3%     9.9%     0.57    -13.4%   10.4%  ok
+  2016-2020                 2.0%    10.2%    -0.49    -24.1%    7.8%  --
+  2021-2026                23.8%    10.2%     1.10    -13.5%   11.3%  ok
+
+  Critério: superar o CDI em pelo menos 3 dos 4 blocos.
+  Superou em 3 de 4  ->  APROVADO
+
+==============================================================================
+D. TETO DE ALAVANCAGEM
+   A base bate no teto de 3x em 48.3% dos rebalanceamentos. Se o
+   resultado depende disso, o teto virou parâmetro de retorno e
+   não trava de segurança.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  teto 1x                  12.4%     4.8%     0.35    -11.7%    -0.13
+  teto 2x                  14.1%     8.3%     0.41    -18.8%    -0.07
+  teto 3x *                15.6%    10.5%     0.47    -24.1%   (base)
+  teto 5x                  16.7%    11.8%     0.51    -31.4%    +0.03
+
+  Critério: com teto 2x, ainda superar o CDI (10.7%).
+  Com teto 2x: CAGR 14.1%  ->  APROVADO
+
+==============================================================================
+E. JACKKNIFE POR CLASSE — retirando um bloco inteiro por vez
+   Com 40 ativos, tirar UM de cada vez confirmaria o óbvio. A
+   pergunta que ainda morde: o resultado depende de uma CLASSE
+   inteira? Se tirar todas as commodities derruba tudo, isto é
+   uma aposta em commodities com enfeite de diversificação.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  sem commodities (17)     16.4%    10.6%     0.53    -29.0%    +0.06
+  sem cambio (10)          15.4%    11.8%     0.41    -26.0%    -0.06
+  sem setores (4)          15.2%    10.3%     0.44    -23.5%    -0.03
+  sem acoes_indice (4)     15.5%    10.5%     0.46    -22.3%    -0.01
+  sem acoes_etf (3)        15.0%    10.2%     0.43    -25.5%    -0.05
+  sem juros (1)            15.6%    10.7%     0.46    -28.0%    -0.01
+  sem imobiliario (1)      15.5%    10.4%     0.46    -23.9%    -0.01
+
+  Critério: Sharpe >= 0.25 retirando qualquer classe.
+  Pior caso: sem cambio -> Sharpe 0.41  ->  APROVADO
+
+==============================================================================
+F. HORIZONTE DO SINAL
+   12-1 veio da literatura, não dos nossos dados. O teste é se o
+   efeito existe numa FAIXA de horizontes — momentum é um fenômeno
+   amplo, não um truque que só funciona em 12 meses.
+                            CAGR      Vol   Sharpe    Max DD  ΔSharpe
+  ------------------------------------------------------------------
+  6-1 meses                15.6%    10.1%     0.48    -21.8%    +0.01
+  9-1 meses                16.6%    10.2%     0.57    -28.6%    +0.09
+  12-1 meses *             15.6%    10.5%     0.47    -24.1%   (base)
+  18-1 meses               13.9%    10.4%     0.33    -28.9%    -0.15
+
+  Critério: Sharpe positivo em pelo menos 3 dos 4 horizontes.
+  Positivo em 4 de 4  ->  APROVADO
+
+==============================================================================
+VEREDITO GERAL
+==============================================================================
+  A. Custos                     APROVADO
+  B. Janela de volatilidade     APROVADO
+  C. Sub-períodos               APROVADO
+  D. Teto de alavancagem        APROVADO
+  E. Jackknife de ativos        APROVADO
+  F. Horizonte do sinal         APROVADO
+
+  6 de 6 testes aprovados.
+  O resultado não depende de nenhuma escolha isolada testada.
+==============================================================================

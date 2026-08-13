@@ -1,0 +1,284 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=16mm,top=17mm,bottom=16mm]{geometry}
+\usepackage{fontspec}
+\setmainfont{DejaVu Sans}
+\usepackage{booktabs,tabularx,array,graphicx,xcolor,hyperref,fancyhdr,enumitem}
+\definecolor{navy}{HTML}{1B4965}
+\definecolor{red}{HTML}{8E1216}
+\definecolor{green}{HTML}{1A5E39}
+\definecolor{light}{HTML}{F1F5F7}
+\hypersetup{colorlinks=true,linkcolor=navy,urlcolor=navy}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small\color{navy}\textbf{MIYAGI - auditoria independente}}
+\rhead{\small 13/08/2026}\cfoot{\thepage}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
+\setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=6mm,itemsep=2pt,topsep=3pt}
+\newcommand{\critical}[1]{\colorbox{red}{\textcolor{white}{\strut\textbf{#1}}}}
+\newcommand{\high}[1]{\colorbox{navy}{\textcolor{white}{\strut\textbf{#1}}}}
+\newcommand{\ok}[1]{\colorbox{green}{\textcolor{white}{\strut\textbf{#1}}}}
+\newenvironment{callout}{\begin{center}\begin{minipage}{0.95\linewidth}\color{navy}\hrule height 1.5pt\vspace{2mm}\color{black}}{\vspace{1mm}\color{navy}\hrule height 0.5pt\end{minipage}\end{center}}
+
+\begin{document}
+
+{\Huge\color{navy}\textbf{MIYAGI}}\\[3mm]
+{\Large Auditoria crítica e independente}\\[2mm]
+{\small Estratégia de time-series momentum multiativo - Desafio Quant AI 2026}
+
+\begin{callout}
+\textbf{Veredito.} A estratégia continua positiva e passa os seis critérios de
+robustez declarados. Porém, o Sharpe auditado é \textbf{0,47}, não 0,50, e a
+evidência estatística é marginal. O histórico não pode ser chamado integralmente
+fora da amostra, e o painel mistura instrumentos com economias incompatíveis.
+Este é um proxy acadêmico de pesquisa, não ainda um retorno implementável.
+\end{callout}
+
+\section*{Resumo quantitativo}
+\begin{tabularx}{\textwidth}{Xrrrr}
+\toprule
+Versão & CAGR & Vol. & Sharpe & Max DD\\
+\midrule
+Relatório anterior & 15,9\% & 10,5\% & 0,50 & -23,0\%\\
+\textbf{Motor auditado} & \textbf{15,6\%} & \textbf{10,5\%} & \textbf{0,47} & \textbf{-24,1\%}\\
+Seleção anual defasada, 2016-2026 & 12,9\% & 10,6\% & 0,34 & -25,0\%\\
+\bottomrule
+\end{tabularx}
+
+\textbf{O que mudou no motor:} retorno calculado com
+\texttt{fill\_method=None}; painel corrigido usado em todos os scripts; pesos
+efetivos derivam entre rebalanceamentos; contribuição usa o peso anterior ao
+retorno; lacunas e exposição sem retorno são registradas.
+
+\section*{Achados prioritários}
+\begin{enumerate}
+\item \critical{CRÍTICO} \textbf{Linhagem inconsistente.} Robustez e figuras
+usavam \texttt{pool\_expandido.csv}, enquanto o resultado final usava
+\texttt{pool\_carrego.csv}. A carteira publicada mostrava TRY comprada; o motor
+corrigido a coloca vendida em -0,614.
+\item \critical{CRÍTICO} \textbf{Seleção com informação futura.} Elegibilidade,
+correlações e medoides foram calculados até 2026 e aplicados desde 2005. A regra
+de 15 anos nem poderia ser executada em 2005 sobre um pool iniciado em 2000.
+\item \critical{CRÍTICO} \textbf{Dados ausentes dependiam da versão do pandas.}
+O padrão antigo de \texttt{pct\_change()} preenchia buracos e criava saltos de
+reabertura. A opção explícita sem preenchimento reproduzia o 0,50 documentado,
+mas ainda deixava posições ativas durante lacunas.
+\item \high{ALTO} \textbf{Economia dos instrumentos.} O painel soma CDI a ETFs,
+índices de preço, futuros contínuos e FX. Essa soma só é correta se todas as
+pernas arriscadas forem retornos excedentes financiados, o que não ocorre.
+\item \high{ALTO} \textbf{Inferência frágil.} Autocorrelação, caudas e o caminho
+de pesquisa tornam t=2,19 insuficiente para uma alegação forte de significância.
+\end{enumerate}
+
+\newpage
+\section*{1. Modelagem e execução}
+
+\subsection*{1.1 Rebalanceamento mensal versus diário implícito}
+O código anterior aplicava o mesmo vetor de pesos todos os dias do mês. Isso
+equivale a restaurar diariamente os pesos-alvo, sem cobrar as negociações dessa
+restauração. O motor auditado mantém quantidades/notionais entre datas mensais e
+deixa os pesos derivarem com preços e patrimônio. A mudança reduz o Sharpe de
+0,50 para 0,47 e aumenta o drawdown de -23,0\% para -24,1\%.
+
+\subsection*{1.2 Atribuição temporal}
+O relatório atribuía o retorno do dia de rebalanceamento à carteira nova. A
+estratégia declara que decide no fechamento e só colhe retornos a partir do dia
+seguinte. O novo log \texttt{pesos\_diarios} registra a exposição efetiva antes
+de cada retorno. TRY continua sendo a maior contribuição, agora cerca de
++1,16\% ao ano, mas a última posição correta é vendida.
+
+\subsection*{1.3 Lacunas}
+Foram identificadas \textbf{60 lacunas internas maiores que cinco dias}. Em
+\textbf{330 de 5.386 dias} de carregamento (6,1\%) havia posição ativa e ao menos
+um retorno ausente. A exposição absoluta média nesses dias foi 6,5\%; o máximo,
+44,2\%. O motor mantém P\&L zero onde não há retorno e registra a exposição, mas
+isso é uma convenção de diagnóstico, não uma cotação observada.
+
+\begin{callout}
+\textbf{Decisão correta:} não interpolar preços nem inventar retornos. Para uma
+versão implementável, cada lacuna precisa ser resolvida na fonte ou levar a uma
+regra de saída/tradabilidade definida antes do teste.
+\end{callout}
+
+\subsection*{1.4 Instrumentos}
+\begin{tabularx}{\textwidth}{l r X}
+\toprule
+Tipo no universo & N & Problema econômico\\
+\midrule
+Futuros contínuos Yahoo & 15 & roll e custo de rolagem não identificados\\
+ETFs adjusted close & 11 & retorno total financiado, não excesso de futuro\\
+FX com carry proxy & 6 & taxas proxy; sem vintage e lag de publicação\\
+FX spot & 4 & carry ausente\\
+Índices de preço & 4 & dividendos e conversão cambial ausentes\\
+\bottomrule
+\end{tabularx}
+
+Adicionar CDI integralmente é defensável para uma carteira de futuros com
+collateral, desde que cada série arriscada seja um retorno excedente de contrato.
+Não é defensável de forma uniforme para o painel atual. Também faltam roll,
+borrow de posições vendidas, margem, haircuts e custos específicos.
+
+\newpage
+\section*{2. Viés de seleção}
+
+\subsection*{2.1 O vazamento}
+O funil é cego a retorno médio, mas não ao futuro. Um ativo só entra se, visto em
+2026, tiver 15 anos de histórico; a correlação e o representante do cluster são
+escolhidos sobre toda a amostra. Saber antecipadamente quais ativos sobreviverão
+e como se correlacionarão é informação futura.
+
+\subsection*{2.2 Teste anual defasado}
+Foi implementada uma seleção no último dia disponível de cada ano, usada apenas
+no ano seguinte. Mantém-se a regra declarada de 15 anos, sem encurtá-la para
+obter um resultado melhor. Por isso o primeiro corte possível é dezembro de
+2015 e o primeiro retorno é de 2016.
+
+\begin{tabularx}{\textwidth}{Xrrrr}
+\toprule
+Período & CAGR & Vol. & Sharpe & Max DD\\
+\midrule
+2016-2026, seleção anual defasada & 12,9\% & 10,6\% & 0,34 & -25,0\%\\
+\bottomrule
+\end{tabularx}
+
+O número é positivo, mas não é comparável diretamente ao Sharpe 0,47 de
+2005-2026. Ele responde a uma pergunta mais restrita: quanto resta quando o
+funil explícito só usa o passado, no período em que o requisito é possível.
+
+\begin{callout}
+\textbf{Rótulo obrigatório: pseudo-point-in-time.} Os CSVs atuais foram
+baixados retrospectivamente. Sem snapshots/vintages do Yahoo e ALFRED não se
+prova que o provedor mostrava exatamente esses valores e esse conjunto de ativos
+em cada data histórica.
+\end{callout}
+
+\subsection*{2.3 Pré-registro}
+O commit \texttt{88392ef} registrou Sharpe 0,65 para o walk-forward de 40 ativos.
+O realizado daquela etapa foi 0,48, fora da banda de ±0,10. Logo, a previsão
+original falhou. Recalcular depois a fórmula com Sharpe 0,36 e 11,2 apostas para
+obter 0,455, comparando com a amostra completa, é uma checagem pós-hoc de
+consistência, não confirmação independente.
+
+\section*{3. Inferência estatística}
+\begin{tabularx}{\textwidth}{lrrr}
+\toprule
+Estimador & Lag & t & p bilateral\\
+\midrule
+Diário IID & 0 & 2,189 & 0,0286\\
+Diário Newey-West & 21 & 1,908 & 0,0564\\
+Diário Newey-West & 252 & 1,936 & 0,0529\\
+Mensal IID & 0 & 1,988 & 0,0468\\
+Mensal Newey-West & 24 & 1,913 & 0,0557\\
+\bottomrule
+\end{tabularx}
+
+\newpage
+\section*{4. Múltiplos testes e incerteza}
+
+O p bilateral IID é 0,0286. Bonferroni para apenas quatro combinações dá
+\textbf{0,114}; no teste unilateral, 0,057. Quatro subestima o caminho total,
+que inclui universos, estimadores, horizontes, janelas, alavancagem, expansão e
+mudanças de modelo. Portanto nem esse ajuste deve ser apresentado como
+conservador completo.
+
+\begin{tabularx}{\textwidth}{lrrr}
+\toprule
+Bloco bootstrap & IC 2,5\% & Mediana & IC 97,5\%\\
+\midrule
+21 dias & -0,037 & 0,466 & 0,947\\
+63 dias & 0,025 & 0,470 & 0,960\\
+252 dias & 0,002 & 0,486 & 0,960\\
+\bottomrule
+\end{tabularx}
+
+Os três blocos foram declarados e reportados conjuntamente; nenhum foi
+selecionado por favorecer a estratégia. O limite inferior muda de sinal, o que
+reforça a leitura de evidência marginal. Um passo adicional adequado é White
+Reality Check/SPA ou Deflated Sharpe Ratio sobre o conjunto completo de
+estratégias realmente tentadas, cuja contagem precisa ser reconstruída do log.
+
+\section*{5. Robustez após as correções}
+\begin{tabularx}{\textwidth}{l X r}
+\toprule
+Teste & Resultado auditado & Veredito\\
+\midrule
+Custos & 0,2\%/trade: CAGR 14,3\% & \ok{PASSA}\\
+Janela de vol & Sharpe mínimo 0,40 & \ok{PASSA}\\
+Subperíodos & supera CDI em 3 de 4 & \ok{PASSA}\\
+Alavancagem & teto 2x: CAGR 14,1\% & \ok{PASSA}\\
+Jackknife por classe & pior Sharpe 0,41, sem câmbio & \ok{PASSA}\\
+Horizonte & Sharpe positivo em 4 de 4 & \ok{PASSA}\\
+\bottomrule
+\end{tabularx}
+
+Isso permite dizer: \textit{o resultado não depende de uma única escolha entre
+as seis variações testadas}. Não permite dizer: \textit{o resultado está livre
+de erro de modelagem, seleção ou múltiplos testes}. O erro de carry original já
+havia passado por testes de robustez, mostrando por que robustez paramétrica e
+validade econômica são perguntas diferentes.
+
+\section*{6. Controle de risco}
+O teto de 3x é atingido em \textbf{48,3\%} dos rebalanceamentos, não cerca de
+23\%. Logo, ele é parte ativa do perfil de retorno e risco, embora o teste com
+2x continue superando o CDI. A volatilidade agregada de 10,5\% próxima ao alvo
+de 10\% não valida sozinha a previsão mensal de risco nem a matriz 40x40
+estimada com apenas 60 dias.
+
+\newpage
+\section*{7. O que pode ser afirmado}
+
+{\small\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+Afirmação sustentada & Afirmação que deve ser removida\\
+\midrule
+A estratégia tem retorno excedente positivo na amostra. & ``Sharpe 0,50 é
+estatisticamente robusto.''\\
+Os seis critérios declarados sobrevivem ao motor auditado. & ``2005-2026 é todo
+fora da amostra.''\\
+O funil anual causal mantém Sharpe positivo em 2016-2026. & ``A previsão de
+diversificação foi confirmada.''\\
+TRY continua relevante após a correção de carry. & ``A queda da duração das
+tendências causou o bloco ruim.''\\
+O painel serve a uma prova acadêmica transparente. & ``O backtest representa
+execução real de futuros.''\\
+\bottomrule
+\end{tabularx}}
+
+\section*{8. Ordem de correção recomendada}
+\begin{enumerate}
+\item Usar uma única fonte oficial em código, gráficos, robustez e carteira.
+\item Fixar versões, retorno sem preenchimento e auditoria de lacunas.
+\item Manter timing causal e deriva de pesos entre rebalanceamentos.
+\item Rotular o funil completo como in-sample e reportar o teste anual 2016+.
+\item Reescrever significância e pré-registro com HAC e múltiplos testes.
+\item Reconstruir instrumentos: contratos e rolls de futuros; forwards de FX;
+índices total return ou futuros de ações; funding e collateral consistentes.
+\end{enumerate}
+
+\section*{Artefatos reproduzíveis}
+\begin{itemize}
+\item \texttt{dados\_miyagi.py}: fonte única e regras de calendário.
+\item \texttt{auditoria\_dados.py}: lacunas, exposição sem retorno e tipos.
+\item \texttt{auditoria\_estatistica.py}: IID, HAC, Bonferroni e bootstrap.
+\item \texttt{auditoria\_selecao.py}: funil anual defasado.
+\item \texttt{robustez.py --universo 40}: seis testes no painel oficial.
+\item \texttt{tests/test\_backtest.py}: testes contra preenchimento implícito,
+sinal sem cotação e divergência de painel.
+\end{itemize}
+
+\begin{callout}
+\textbf{Conclusão final.} O projeto tem mérito por registrar erros e manter
+parâmetros mesmo quando alternativas parecem melhores. A contribuição mais
+forte para o desafio não é vender um Sharpe de 0,50 como fato; é mostrar uma
+pesquisa que encontrou onde o próprio número falhava, corrigiu o motor e
+preservou as limitações sem fabricar dados.
+\end{callout}
+
+\vfill
+{\small\color{navy}\textbf{Fontes metodológicas principais}}\\
+{\footnotesize Moskowitz, Ooi e Pedersen (2012), \textit{Time Series Momentum};
+Hurst, Ooi e Pedersen (2017), \textit{A Century of Evidence on Trend-Following};
+White (2000), \textit{A Reality Check for Data Snooping}; Bailey e López de Prado
+(2014), \textit{The Deflated Sharpe Ratio}. Resultados numéricos desta auditoria
+foram produzidos exclusivamente pelos CSVs versionados no repositório.}
+
+\end{document}

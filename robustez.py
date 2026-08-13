@@ -123,6 +123,10 @@ def _metricas(precos, retornos, cdi, **overrides) -> dict:
     m = calcular_metricas(r["retornos"], cdi)
     m["exposicao_media"] = float(r["exposicao"].mean())
     m["custo_total"] = float(r["custos"].sum())
+    m["retornos"] = r["retornos"]
+    m["fracao_teto"] = float(
+        np.isclose(r["exposicao"], bt.ALAVANCAGEM_MAX, rtol=0, atol=1e-8).mean()
+    )
     return m
 
 
@@ -231,7 +235,7 @@ def main() -> None:
     print("   carregando duas décadas de mediocridade.")
     print(f"  {'':<22}{'CAGR':>8}{'Vol':>9}{'Sharpe':>9}{'Max DD':>10}{'CDI':>9}")
     print("  " + "-" * 66)
-    r_base = base["patrimonio"].pct_change().dropna()
+    r_base = base["retornos"]
     blocos = [("2005-2010", "2005", "2010"), ("2011-2015", "2011", "2015"),
               ("2016-2020", "2016", "2020"), ("2021-2026", "2021", "2026")]
     ganhou = 0
@@ -255,7 +259,8 @@ def main() -> None:
     # =================================================================== D
     print("\n" + "=" * 78)
     print("D. TETO DE ALAVANCAGEM")
-    print("   A base bate no teto de 3x em ~23% dos rebalanceamentos. Se o")
+    print(f"   A base bate no teto de 3x em {base['fracao_teto']:.1%} dos "
+          "rebalanceamentos. Se o")
     print("   resultado depende disso, o teto virou parâmetro de retorno e")
     print("   não trava de segurança.")
     print(_cabecalho())

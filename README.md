@@ -2,8 +2,17 @@
 
 > *"Não prevê o golpe. Observa o movimento — e responde com técnica."*
 
-Estratégia de **time-series momentum** (trend following) sobre 8 ativos de 6
-classes, com controle de risco por volatilidade alvo. Desafio Quant AI 2026.
+Estratégia de **time-series momentum** (trend following) multiativo, com
+controle de risco por volatilidade alvo. Desafio Quant AI 2026.
+
+> **Estado auditado (13/08/2026).** A versão oficial usa 40 ativos do painel
+> `dados/pool_carrego.csv`. O número reproduzível após tornar explícitos dados
+> ausentes, timing e deriva dos pesos é Sharpe **0,47**, CAGR **15,6%**, vol
+> **10,5%** e max drawdown **−24,1%**. O resultado anterior de 0,50 permanece no
+> histórico abaixo, mas não é mais a estimativa oficial.
+
+Relatório independente de cinco páginas: [`docs/auditoria_independente.pdf`](docs/auditoria_independente.pdf)
+(fonte editável em `docs/auditoria_independente.tex`).
 
 ---
 
@@ -26,24 +35,66 @@ vem primeiro.
 python -m venv .venv
 .venv/Scripts/activate          # Windows
 pip install pandas numpy matplotlib
-python backtest_miyagi.py
+python resultado_final.py
+python auditoria_dados.py
+python auditoria_estatistica.py
+python auditoria_selecao.py
+python robustez.py --universo 40
 ```
 
-Produz as métricas no terminal e grava séries, pesos e as duas figuras em
+Use `pip install -r requirements.txt` para reproduzir as versões auditadas.
+Os scripts imprimem as métricas e gravam diagnósticos regeneráveis em
 `resultados/`.
 
 ## Estrutura
 
 ```
 backtest_miyagi.py       o backtest completo, comentado bloco a bloco para leigos
+dados_miyagi.py          fonte única: painel corrigido, universo e calendário
+auditoria_dados.py       lacunas e convenções econômicas dos instrumentos
+auditoria_estatistica.py HAC, múltiplos testes e bootstrap em blocos
+auditoria_selecao.py     universo anual usando apenas dados até cada corte
 comparar_estimadores.py  diagnóstico: janela de 60 dias vs. EWMA
 dados/
-  prices.csv             preços diários dos 8 ativos (2003-2026)
+  pool_carrego.csv       painel oficial; FX corrigido onde há juros disponíveis
+  universo_final.txt     lista oficial de 40 ativos
   cdi.csv                CDI diário (o "dinheiro parado" rende isso)
 selecao_universo/        o funil 26 -> 8 ativos: código, matriz, heatmaps
 docs/                    esboço inicial, emblema, edital, metodologia
 resultados/              séries, pesos e figuras gerados pelo backtest
 ```
+
+## Resultado auditado e interpretação
+
+| medida | estimativa auditada |
+|---|---:|
+| CAGR | 15,6% |
+| volatilidade anual | 10,5% |
+| Sharpe sobre CDI | 0,47 |
+| t ingênuo | 2,19 |
+| t HAC diário | 1,91–1,99 |
+| max drawdown | −24,1% |
+
+Os seis critérios de robustez previamente declarados continuam aprovados. Isso
+mostra que o resultado não depende de uma única variação testada; **não prova
+significância estatística nem ausência de viés de seleção**. Com quatro testes,
+o p-valor bilateral Bonferroni é 0,114; quatro é ainda uma contagem otimista do
+caminho de pesquisa. No bootstrap em blocos, o limite inferior do IC 95% do
+Sharpe varia de −0,04 a +0,03 conforme o bloco declarado.
+
+O funil histórico usou elegibilidade, correlações e medoides calculados com a
+amostra completa até 2026. Por isso 2005–2026 **não é integralmente fora da
+amostra**. Um teste anual, com seleção no fim de cada ano e uso apenas no ano
+seguinte, só pode começar em 2016 porque o próprio funil exige 15 anos de dados;
+em 2016–2026 ele entrega Sharpe 0,34. O teste ainda é chamado de
+*pseudo-point-in-time*, pois os arquivos públicos não guardam vintages.
+
+Finalmente, o painel mistura ETFs com adjusted close, índices de preço, futuros
+contínuos do Yahoo e câmbio. Foram encontradas 60 lacunas internas maiores que
+cinco dias; em 330 dias havia posição ativa e algum retorno ausente. Logo, este
+continua sendo um **proxy acadêmico de pesquisa**, não um histórico homogêneo de
+retornos excedentes implementáveis. Não foram inventados roll, dividendos,
+funding, borrow ou taxas ausentes.
 
 ## As regras da estratégia
 
@@ -163,11 +214,12 @@ diagnóstico, não como decisão.
 Dividir em treino/teste serve para quando o modelo **aprende** algo dos dados —
 você separa um pedaço que ele nunca viu para checar se aprendeu ou decorou.
 
-**O Miyagi não aprende nada dos dados.** Sinal 12-1, janela de 60 dias, alvo de
-10%, teto de 3× e os 8 ativos vieram todos de fora: da literatura ou de um funil
-de correlação feito ex-ante. Nenhum foi escolhido olhando retorno. Nesse sentido,
-**os 21,5 anos inteiros já são out-of-sample** — não existe pedaço contaminado
-por ajuste porque não houve ajuste.
+O sinal e os parâmetros centrais não são treinados para maximizar retorno. Isso
+reduz data snooping, mas **não torna os 21,5 anos fora da amostra**. O funil usa
+retornos e correlações da amostra completa, além de exigir sobrevivência e
+cobertura observadas até 2026. A seleção é cega a retorno médio, mas não é
+point-in-time. O teste auditado em `auditoria_selecao.py` corrige o corte
+explícito apenas a partir de 2016 e ainda é limitado pela ausência de vintages.
 
 (Era diferente no MARÉ: lá havia parâmetros calibrados, então o design/holdout
 era obrigatório.)
@@ -249,7 +301,7 @@ pesquisa de garimpo.
 
 Treinar melhorou nos dois casos. Mas **os dois números não valem o mesmo.**
 
-### A tese econômica foi confirmada de forma independente
+### Evidência compatível com a tese, não confirmação independente
 
 O walk-forward escolhe o horizonte mês a mês, olhando só o passado. O que ele
 escolheu ao longo do tempo:
@@ -262,10 +314,10 @@ escolheu ao longo do tempo:
 | **2020–2024** | **9,9 meses** | **6-1** |
 | 2025–2026 | 9,0 meses | 9-1 |
 
-**O robô migrou sozinho para horizontes mais curtos depois de 2020** — sem que
-ninguém programasse isso, e usando apenas dados passados. É exatamente o que a
-tese das "tendências encurtando" previa. Duas medições independentes apontando
-para o mesmo mecanismo é a evidência mais forte deste trabalho.
+**O robô migrou para horizontes mais curtos depois de 2020**, usando apenas
+dados passados dentro da rotina. Isso é compatível com a tese de tendências mais
+curtas, mas as duas medidas vêm do mesmo painel e do mesmo processo de pesquisa;
+não são evidência causal nem confirmação estatisticamente independente.
 
 ### Por que o 0,69 do treino/teste NÃO deve ser reportado como out-of-sample
 
@@ -307,13 +359,12 @@ estratégia, apresentada **ao lado** da base — não no lugar dela.
 
 Três razões, em ordem de peso:
 
-1. **Cruza o limiar de significância.** Com t = 2,36 o resultado é
-   estatisticamente distinguível de zero pela convenção usual (t > 2); a base,
-   com 1,88, não é. É uma diferença qualitativa, não só um número maior.
+1. **Na análise histórica, cruzava o limiar ingênuo.** Isso não basta após
+autocorrelação e múltiplos testes; a auditoria final usa HAC e mantém a base
+12-1, sem apresentar o walk-forward como confirmação independente.
 2. **Entra na faixa da literatura** (0,5–1,0), onde a base ficava de fora.
-3. **A justificativa econômica veio antes do teste** e foi confirmada por um
-   caminho independente (o robô migrou sozinho para horizontes curtos quando as
-   tendências encurtaram).
+3. **A justificativa econômica veio antes do teste**, mas o caminho usa o mesmo
+painel e deve ser descrito como diagnóstico de sensibilidade.
 
 **Por que a base continua sendo reportada junto:** ela tem zero parâmetros
 ajustados, o que é o argumento mais forte possível para "tratamento adequado de
@@ -492,10 +543,9 @@ emprestada e **pagar a taxa turca** — que chegou a 40–50% ao ano, contra 0�
 nos EUA. O preço à vista da lira caiu 18% ao ano e isso parecia lucro. O
 carrego que teríamos pago era da mesma ordem.
 
-Há um argumento teórico que fecha o caso: pela paridade descoberta de juros,
-moedas de juro alto se desvalorizam aproximadamente pelo diferencial. **O fato
-de a lira ter caído 18% ao ano é, ele mesmo, evidência de que o diferencial era
-dessa ordem.**
+A paridade **coberta** liga o diferencial de juros ao preço a termo. A paridade
+**descoberta** é uma hipótese sobre a desvalorização esperada, não uma identidade
+nem prova baseada no retorno realizado.
 
 ### A correção, com dados reais de juros
 
@@ -511,9 +561,10 @@ Séries do FRED (IMF/IFS). Cada par virou um índice de **retorno total**:
 | INR=X | +3,4% | −1,5% | −4,9 |
 | JPY=X | +1,8% | **+3,3%** | **+1,6** |
 
-A paridade de juros se confirma quase exatamente: a lira sai de +18% para
-−1,6%. O iene vai na direção **oposta** (+1,6%), porque os juros japoneses eram
-menores que os americanos — ficar comprado em USD/JPY *recebe* carrego.
+Com os proxies utilizados, a lira sai de +18% para −1,6%. O iene vai na direção
+**oposta** (+1,6%), porque os juros japoneses eram menores que os americanos —
+ficar comprado em USD/JPY *recebe* carrego. Isso é resultado do modelo de carry,
+não confirmação empírica de uma identidade econômica.
 
 <em>Limitação:</em> G10 (AUD, CAD, GBP, SEK, EUR) não tem série pública completa
 no FRED e ficou sem correção. O diferencial dessas moedas contra o dólar é de
@@ -527,13 +578,18 @@ existe e está declarado.
 | 8 ativos | 0,41 (t=1,88) | **0,36 (t=1,64)** |
 | **40 ativos** | 0,60 (t=2,78) | **0,50 (t=2,30)** |
 
-**A expansão do universo ajudou de verdade: 0,36 → 0,50.** E só a versão de 40
-ativos mantém significância estatística (t > 2).
+Estes são os números da etapa anterior. Após a auditoria do motor, a versão de
+40 ativos passa a Sharpe **0,47** e t ingênuo **2,19**; HAC fica abaixo ou muito
+próximo de 2. Portanto a evidência deve ser descrita como **marginal**, não como
+significância robusta.
 
-### A previsão de diversificação se confirma nos dados limpos
+### A previsão original não foi confirmada
 
-A metodologia registrada em `88392ef` era escalar o Sharpe pela raiz das
-apostas efetivas. Aplicada aos dados corrigidos:
+A previsão registrada em `88392ef` foi Sharpe 0,65 para o walk-forward de 40
+ativos. O realizado daquela etapa foi 0,48, fora da banda de ±0,10. Portanto a
+previsão **falhou**. Reaplicar depois a mesma fórmula a insumos corrigidos e
+compará-la com a amostra completa é uma verificação descritiva pós-hoc, não uma
+nova previsão independente.
 
 ```
 previsto = 0,36 × raiz(11,2 / 7,0) = 0,36 × 1,265 = 0,455
@@ -541,13 +597,12 @@ realizado                                        = 0,50
 erro                                             = +0,045
 ```
 
-Dentro da banda de ±0,10 que foi **declarada como "confirmada" antes de
-qualquer resultado existir**. O ganho de diversificação era real; o que estava
-errado era o instrumento, não a teoria.
+O valor pós-hoc ficou próximo, mas não autoriza a palavra “confirmada”. O teste
+pseudo-point-in-time anual (2016–2026) tem Sharpe 0,34 e mostra que parte do
+resultado depende da seleção com a amostra completa.
 
-<small class="note">Ressalva: a previsão original (0,65) usava o walk-forward
-sobre dados não corrigidos. O número acima é a mesma fórmula recalculada sobre
-a base limpa — a metodologia foi registrada antes, o insumo mudou.</small>
+<small class="note">A fórmula foi registrada antes; os novos insumos e a
+comparação não foram. Essa distinção é mantida explicitamente.</small>
 
 ### Concentração depois da correção
 
