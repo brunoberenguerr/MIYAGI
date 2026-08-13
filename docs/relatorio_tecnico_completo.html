@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>MIYAGI — Relatório técnico completo</title>
+<style>
+  @page { size: A4; margin: 15mm 14mm 13mm 14mm; }
+  :root {
+    --navy: #1B4965; --navy-soft: #285571; --gray: #3F4954;
+    --line: #D8DEE4; --bg: #F4F7F9;
+    --red: #8E1216; --amber: #915800; --green: #1A5E39;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif;
+         font-size: 10.4pt; line-height: 1.55; color: #16202B; margin: 0; }
+  h1 { font-size: 22pt; color: var(--navy); margin: 0 0 3px; letter-spacing: -.4px; }
+  h2 { font-size: 13.5pt; color: var(--navy); margin: 20px 0 8px;
+       padding-bottom: 4px; border-bottom: 2px solid var(--navy); page-break-after: avoid; }
+  h3 { font-size: 11.4pt; color: var(--navy-soft); margin: 14px 0 5px; page-break-after: avoid; }
+  h4 { font-size: 10.6pt; color: var(--gray); margin: 11px 0 4px; page-break-after: avoid; }
+  p { margin: 0 0 8px; }
+  ul, ol { margin: 0 0 8px; padding-left: 19px; }
+  li { margin-bottom: 3px; }
+  code { font-family: Consolas, monospace; font-size: 9.2pt;
+         background: var(--bg); padding: 1px 4px; border-radius: 3px; }
+  pre { font-family: Consolas, monospace; font-size: 8.8pt; background: var(--bg);
+        color: #16202B; padding: 9px 12px; border-radius: 5px; border: 1px solid var(--line);
+        border-left: 3px solid var(--navy); margin: 8px 0; line-height: 1.45; overflow-x: auto; }
+  pre .c { color: #4A6070; font-style: italic; }
+
+  header { border-bottom: 3px solid var(--navy); padding-bottom: 10px; margin-bottom: 6px; }
+  .sub { color: var(--gray); font-size: 11pt; margin: 0 0 3px; }
+  .meta { color: var(--gray); font-size: 9.2pt; margin: 0; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.6pt; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 5px 7px; font-weight: 600; }
+  td { padding: 4px 7px; border-bottom: 1px solid var(--line); }
+  tr:nth-child(even) td { background: #FAFCFD; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .hl td { background: #EAF2F7 !important; font-weight: 600; }
+  .bad td { background: #FDF2F2 !important; }
+  .ok td { background: #F2F8F4 !important; }
+  table.tight { font-size: 8.8pt; }
+  table.tight td, table.tight th { padding: 3px 6px; }
+
+  .callout { background: var(--bg); border-left: 4px solid var(--navy);
+             padding: 9px 12px; margin: 10px 0; page-break-inside: avoid; }
+  .callout.warn { background: #FEF7EC; border-left-color: var(--amber); }
+  .callout.bad { background: #FDF0F0; border-left-color: var(--red); }
+  .callout.good { background: #F0F7F2; border-left-color: var(--green); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .tag { display: inline-block; font-size: 8pt; font-weight: 700; letter-spacing: .3px;
+         padding: 2px 7px; border-radius: 10px; color: #fff; vertical-align: middle; }
+  .t-crit { background: var(--red); } .t-alto { background: var(--amber); }
+  .t-med { background: var(--navy-soft); } .t-ok { background: var(--green); }
+  .t-baixo { background: #55606C; }
+
+  figure { margin: 9px 0 13px; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 4px; }
+  figcaption { font-size: 8.9pt; color: var(--gray); margin-top: 4px; }
+
+  .grid { display: flex; gap: 10px; margin: 9px 0; }
+  .card { flex: 1; background: var(--bg); border-radius: 5px; padding: 8px 11px; }
+  .card .k { font-size: 17pt; font-weight: 700; color: var(--navy); line-height: 1.1; }
+  .card .l { font-size: 8.6pt; font-weight: 600; color: var(--gray);
+             text-transform: uppercase; letter-spacing: .5px; }
+  .card .d { font-size: 8.8pt; color: var(--gray); margin-top: 2px; }
+
+  .pb { page-break-before: always; }
+  small.note { color: var(--gray); font-size: 8.9pt; line-height: 1.4; display: block; }
+  .tick { color: var(--green); font-weight: 700; }
+  .cross { color: var(--red); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MIYAGI — Relatório técnico completo</h1>
+  <p class="sub">Robô de tendência multi-ativo com alvo de risco · Desafio Quant AI 2026</p>
+  <p class="meta">13 de agosto de 2026 · 3 dias para a entrega · documento interno da equipe
+     · repositório: <code>github.com/brunoberenguerr/MIYAGI</code></p>
+</header>
+
+<h2>1. Resumo executivo</h2>
+
+<p><em>"Não prevê o golpe. Observa o movimento — e responde com técnica."</em></p>
+
+<p>Mercados sub-reagem à informação e tendências duram meses. O Miyagi não tenta
+adivinhar o futuro: identifica para onde cada mercado já está andando e vai
+junto — comprado no que sobe, vendido no que cai — com controle de risco em
+primeiro lugar.</p>
+
+<div class="grid">
+  <div class="card"><div class="l">Universo</div><div class="k">40</div><div class="d">de 114 candidatos</div></div>
+  <div class="card"><div class="l">CAGR</div><div class="k">17,2%</div><div class="d">CDI: 10,7%</div></div>
+  <div class="card"><div class="l">Sharpe</div><div class="k">0,60</div><div class="d">t = 2,78</div></div>
+  <div class="card"><div class="l">Max DD</div><div class="k">−21,6%</div><div class="d">Ibovespa: −60%</div></div>
+</div>
+
+<h3>As cinco conclusões que definem o trabalho</h3>
+<ol>
+  <li><strong>A estratégia funciona</strong>, mas com Sharpe modesto — na faixa
+  baixa do que a literatura reporta.</li>
+  <li><strong>Ela parou de bater o CDI entre 2016 e 2020</strong>, e a causa foi
+  medida: as tendências encurtaram 40% (de 11,5 para 6,9 meses).</li>
+  <li><strong>Expandir o universo de 8 para 40 ativos passou a robustez de 4/6
+  para 6/6</strong> — mas o ganho de retorno veio quase todo de um único ativo.</li>
+  <li><strong>Sem a lira turca, o Sharpe cai de 0,60 para 0,42</strong> e perde
+  significância estatística. A diversificação prometida pela correlação não se
+  materializou.</li>
+  <li><strong>Duas estratégias foram descartadas com rigor no caminho</strong>
+  (MARÉ e o walk-forward no universo grande) — e isso vale mais que um número
+  bonito.</li>
+</ol>
+
+<div class="callout bad">
+  <p><strong>O que precisa aparecer no relatório de 5 páginas:</strong> a
+  dependência da lira turca e o buraco de 2016–2020. Um avaliador que fatiar o
+  período ou olhar contribuição por ativo encontra os dois em minutos — muito
+  melhor que venham de nós.</p>
+</div>
+
+<h2>2. O caminho até aqui</h2>
+
+<table>
+  <tr><th>Etapa</th><th>O que era</th><th>Desfecho</th></tr>
+  <tr><td>Seleção de universo</td><td>funil 26 → 8 ativos</td><td>mantido como base</td></tr>
+  <tr><td><strong>MARÉ</strong></td><td>reversão à média em resíduos de PCA (S&amp;P 500)</td>
+      <td class="cross">descartado</td></tr>
+  <tr><td><strong>MIYAGI v1</strong></td><td>trend following, 8 ativos, 12-1 fixo</td>
+      <td>Sharpe 0,41</td></tr>
+  <tr><td>MIYAGI v2</td><td>horizonte adaptativo (walk-forward)</td><td>Sharpe 0,51</td></tr>
+  <tr class="hl"><td><strong>MIYAGI v3</strong></td><td>universo expandido, 40 ativos, 12-1 fixo</td>
+      <td><strong>Sharpe 0,60</strong></td></tr>
+</table>
+
+<h3>Por que o MARÉ foi descartado</h3>
+<p>Auditoria encontrou um vazamento temporal: a última carteira de um período
+continuava rendendo até o fim de <em>todo</em> o histórico. Um teste de fronteira
+provou — pedimos 6 meses de backtest (jan–jun/2008) e recebemos 18 anos.</p>
+<p>Corrigido o bug, a série ativa (MARÉ − SPY) tem Sharpe <strong>+1,008</strong>
+no design e <strong>−0,698</strong> na validação. Não é o sinal enfraquecendo: é
+ele invertendo, com significância nos dois sentidos. Uma auditoria independente
+(<code>robertopinca/MecaQuant_V2</code>) testou a mesma construção com
+pré-registro e obteve <strong>0 de 24</strong> células confirmadas.</p>
+
+<h2 class="pb">3. A estratégia</h2>
+
+<h3>Hipótese central e ineficiência explorada</h3>
+<ul>
+  <li><strong>Sub-reação:</strong> preços incorporam notícias aos poucos (ancoragem).</li>
+  <li><strong>Manada:</strong> fluxos seguem retornos e amplificam o movimento.</li>
+  <li><strong>Limites à arbitragem:</strong> quem aposta contra a tendência sangra
+  antes de ter razão.</li>
+</ul>
+<p>Prêmio documentado em 58 mercados e um século de dados (Moskowitz, Ooi &amp;
+Pedersen 2012; Hurst, Ooi &amp; Pedersen 2017).</p>
+
+<h3>As regras</h3>
+<table>
+  <tr><th>Decisão</th><th>Regra</th><th>Origem</th></tr>
+  <tr><td><strong>Sinal</strong></td>
+      <td>retorno acumulado de 12 meses <em>ignorando o último mês</em>;
+          positivo → comprado, negativo → vendido</td>
+      <td>Moskowitz et al. (2012)</td></tr>
+  <tr><td><strong>Tamanho</strong></td>
+      <td>peso ∝ 1 / volatilidade (janela de 60 dias)</td>
+      <td>convenção da literatura</td></tr>
+  <tr><td><strong>Defesa</strong></td>
+      <td>carteira escalada para volatilidade alvo de 10% a.a.; alavancagem ≤ 3×</td>
+      <td>padrão de managed futures</td></tr>
+  <tr><td><strong>Execução</strong></td>
+      <td>rebalanceamento mensal no fechamento; custo de 0,1% sobre o negociado</td>
+      <td>premissa declarada</td></tr>
+  <tr><td><strong>Caixa</strong></td>
+      <td>rende CDI (estratégia de futuros: posta-se margem, o resto rende)</td>
+      <td>—</td></tr>
+</table>
+
+<p><strong>Por que ignorar o último mês?</strong> No curtíssimo prazo os preços
+tendem a "quicar" de volta — o efeito contrário ao que se quer capturar.
+Incluí-lo adicionaria ruído. É tão padrão que tem nome: sinal "12-1".</p>
+
+<div class="callout good">
+  <p><strong>Zero grid search.</strong> Nenhum parâmetro foi escolhido por dar o
+  melhor resultado. Quando os testes mostraram configurações superiores
+  (horizonte 9-1 daria 0,68; janela de 20 dias daria 0,61; teto de 5× daria
+  0,63), <strong>nenhuma foi adotada</strong>. A configuração base perde em três
+  de três dimensões testadas — o que é evidência verificável de que os valores
+  vieram da literatura, não dos dados.</p>
+</div>
+
+<h2>4. Os dados — 114 candidatos extraídos do Yahoo Finance</h2>
+
+<p>O pool original tinha 42 candidatos e uma lacuna grave: commodities
+apareciam quase só como <em>cesta</em> (DBC). Mas petróleo, cobre, café e boi têm
+ciclos próprios de oferta e demanda — uma cesta funde tudo numa aposta só e
+joga fora a diversificação. Foram acrescentados 20 futuros de commodities
+individuais, 4 futuros de Treasury, índices de bolsa em moeda local e mais
+pares de câmbio.</p>
+
+<table class="tight">
+  <tr><th>Classe</th><th class="num">n</th><th>Tickers</th></tr>
+  <tr><td><strong>Índices de bolsa</strong><br><small class="note">moeda local</small></td><td class="num">23</td>
+      <td>^GSPC ^NDX ^RUT ^DJI ^BVSP ^GDAXI ^FTSE ^FCHI ^STOXX50E ^IBEX ^SSMI ^AEX ^N225 ^HSI ^KS11 ^TWII ^AXJO ^NZ50 ^BSESN ^JKSE ^STI ^MXX ^GSPTSE</td></tr>
+  <tr><td><strong>ETFs de ações</strong><br><small class="note">dólar</small></td><td class="num">25</td>
+      <td>SPY QQQ IWM EFA EEM EWZ EWJ EWG EWU EWY EWT EWA EWC EWW EWH EWS EWL EWD EWN EWP EWI EPP ILF EZA FXI</td></tr>
+  <tr><td><strong>Setores EUA</strong></td><td class="num">9</td>
+      <td>XLF XLK XLI XLP XLY XLB XLE XLU XLV</td></tr>
+  <tr><td><strong>Juros e crédito</strong></td><td class="num">10</td>
+      <td>ZT=F ZF=F ZN=F ZB=F SHY IEF TLT TIP LQD AGG</td></tr>
+  <tr><td><strong>Câmbio</strong></td><td class="num">16</td>
+      <td>BRL=X EURUSD=X JPY=X GBPUSD=X AUDUSD=X CAD=X CHF=X MXN=X NZDUSD=X SEK=X NOK=X ZAR=X SGD=X INR=X TRY=X PLN=X</td></tr>
+  <tr><td><strong>Commodities</strong></td><td class="num">28</td>
+      <td>GC=F SI=F HG=F PL=F PA=F CL=F BZ=F NG=F HO=F RB=F ZC=F ZS=F ZW=F ZL=F KC=F SB=F CC=F CT=F OJ=F LE=F HE=F GLD SLV DBC USO UNG DBA GDX</td></tr>
+  <tr><td><strong>Imobiliário</strong></td><td class="num">3</td><td>VNQ IYR RWR</td></tr>
+</table>
+
+<p><strong>114 de 114 tickers retornaram dado.</strong> Destes, <strong>101 têm
+histórico até 2003</strong>, suficiente para começar o backtest em 2005 (13
+ficaram de fora do funil por histórico curto: VNQ, FXI, GLD, TRY=X, DBC, USO,
+SLV, AUDUSD=X, GDX, DBA, ^STOXX50E, UNG, BZ=F — alguns entram no backtest
+depois, quando acumulam 12 meses de dados).</p>
+
+<div class="callout warn">
+  <p><strong>Limitação declarada:</strong> séries de futuros contínuos do Yahoo
+  (sufixo <code>=F</code>) têm descontinuidade na rolagem de contrato. Para
+  horizonte mensal o efeito é de segunda ordem, mas existe e não foi corrigido.</p>
+</div>
+
+<h2 class="pb">5. O funil — a árvore das apostas independentes</h2>
+
+<p>A tese do Miyagi é diversificação. A relação que a sustenta:</p>
+<pre>Sharpe  ≈  IR × raiz(nº de apostas INDEPENDENTES)</pre>
+
+<p>Oito ativos que andam sempre juntos valem uma aposta só. O funil existe para
+transformar candidatos correlacionados em apostas genuinamente distintas.</p>
+
+<h3>O método (idêntico ao funil original)</h3>
+<ol>
+  <li>correlação de retornos <strong>mensais em log</strong>, pareada (mín. 60 meses de overlap)</li>
+  <li>clustering hierárquico, <em>average linkage</em>, sobre a distância <code>D = 1 − ρ</code></li>
+  <li>corte em <strong>0,35</strong> — junta o que tem correlação média &gt; 0,65</li>
+  <li>elegibilidade: histórico ≥ 15 anos</li>
+  <li>um representante por cluster: o <strong>medoide</strong> (o ativo mais
+  correlacionado com os próprios colegas), desempate por histórico</li>
+</ol>
+
+<div class="callout">
+  <p><strong>A regra do representante é cega a retorno.</strong> Esse é o ponto
+  onde o viés entraria mais facilmente ("fico com o que rendeu mais"). Retorno,
+  Sharpe e desempenho não entram em nenhuma etapa da seleção.</p>
+</div>
+
+<figure>
+  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/dendrograma.png" alt="Dendrograma">
+  <figcaption><strong>A árvore das apostas independentes.</strong> 101 candidatos
+  elegíveis. Cada cor é um cluster; abaixo da linha vermelha os ativos andam
+  juntos demais para valerem como apostas separadas. Repare no bloco roxo à
+  direita: praticamente todas as bolsas do mundo colapsam num punhado de
+  clusters — ações globais são quase uma aposta só.</figcaption>
+</figure>
+
+<h3>O resultado do funil</h3>
+<table>
+  <tr><th></th><th class="num">ativos</th><th class="num">ρ médio</th><th class="num">apostas efetivas</th></tr>
+  <tr><td>universo original</td><td class="num">8</td><td class="num">0,020</td><td class="num">7,0</td></tr>
+  <tr class="hl"><td><strong>universo expandido</strong></td><td class="num">40</td>
+      <td class="num">0,065</td><td class="num"><strong>11,3</strong></td></tr>
+</table>
+
+<p><strong>Os 40 selecionados:</strong></p>
+<pre>AUDUSD=X  BRL=X  BZ=F  CAD=X  CC=F  CT=F  DBA  EFA  EWJ  EWT
+GBPUSD=X  GLD  HE=F  HG=F  IEF  INR=X  JPY=X  KC=F  LE=F  MXN=X
+NG=F  OJ=F  PA=F  PL=F  SB=F  SEK=X  TRY=X  VNQ  XLE  XLP
+XLU  XLV  ZAR=X  ZC=F  ZL=F  ZW=F  ^AXJO  ^BSESN  ^HSI  ^JKSE</pre>
+
+<p><small class="note">Do universo antigo, <strong>^BVSP, SPY, EURUSD=X e DBC não
+sobreviveram</strong> — foram absorvidos por clusters cujo medoide é outro ativo.
+A exposição a Brasil permanece via BRL=X.</small></p>
+
+<figure>
+  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/matriz_correlacao_40.png" alt="Matriz de correlação">
+  <figcaption><strong>Matriz de correlação dos 40 selecionados</strong>, ordenada
+  pelo clustering. ρ médio de 0,065 → 11,3 apostas efetivas. Os blocos vermelhos
+  residuais mostram onde ainda há dependência (os grãos entre si, os câmbios
+  emergentes entre si).</figcaption>
+</figure>
+
+<h2 class="pb">6. Como o backtest funciona</h2>
+
+<p>O motor "rebobina a fita" de 2005 a 2026, mês a mês, <strong>fingindo não
+saber o futuro</strong>. A cada fim de mês:</p>
+
+<pre><span class="c"># 1. o sinal — para onde cada ativo está andando?</span>
+retorno_12m_menos_1m = preco[t-1mes] / preco[t-13meses] - 1
+sinal = +1 se positivo (comprado)  |  -1 se negativo (vendido)
+
+<span class="c"># 2. o tamanho — ativo calmo recebe mais, ativo nervoso recebe menos</span>
+peso_bruto = sinal / volatilidade_60dias
+
+<span class="c"># 3. a defesa — escala a carteira para 10% de risco ao ano</span>
+fator = 10% / volatilidade_estimada_da_carteira    <span class="c"># w'Σw</span>
+peso  = peso_bruto × min(fator, 3x / exposicao)
+
+<span class="c"># 4. o custo — 0,1% sobre o que mudou desde o mês passado</span>
+custo = |peso_novo - peso_antigo|.soma() × 0,1%
+
+<span class="c"># 5. carrega as posições pelo mês seguinte, somando CDI ao caixa</span></pre>
+
+<h3>As três defesas contra look-ahead</h3>
+<ol>
+  <li>A função de sinal recebe <strong>apenas preços até a data da decisão</strong> —
+  não tem como espiar o futuro, nem por acidente.</li>
+  <li>Os retornos são colhidos a partir do dia <strong>seguinte</strong> (filtro
+  <code>&gt;</code>, não <code>&gt;=</code>). Na vida real você decide no
+  fechamento e a posição só passa a valer depois.</li>
+  <li>Ativos entram no universo só quando têm 12 meses de histórico.</li>
+</ol>
+
+<div class="callout warn">
+  <p><strong>Um erro real que isso não pegou.</strong> A primeira versão deste
+  código tinha ~290 datas por ano em vez de ~252 (o câmbio negocia em dias sem
+  pregão na bolsa). Isso inflava o CDI, subestimava a volatilidade e fazia o robô
+  se alavancar demais. Foi detectado porque uma linha de diagnóstico dizia
+  "24,7 anos" para um período de 21,5. <strong>O calendário oficial passou a ser
+  o de dias úteis do CDI.</strong></p>
+</div>
+
+<h2>7. Resultados</h2>
+
+<table>
+  <tr><th></th><th class="num">CAGR</th><th class="num">Vol</th><th class="num">Sharpe*</th>
+      <th class="num">t</th><th class="num">Max DD</th></tr>
+  <tr class="hl"><td><strong>MIYAGI · 40 ativos</strong></td><td class="num">17,2%</td>
+      <td class="num">10,4%</td><td class="num">0,60</td><td class="num">2,78</td><td class="num">−21,6%</td></tr>
+  <tr><td>MIYAGI · 8 ativos</td><td class="num">15,0%</td><td class="num">11,0%</td>
+      <td class="num">0,41</td><td class="num">1,88</td><td class="num">−20,4%</td></tr>
+  <tr><td>Ibovespa</td><td class="num">9,7%</td><td class="num">25,7%</td>
+      <td class="num">0,09</td><td class="num">—</td><td class="num">−60,0%</td></tr>
+  <tr><td>CDI</td><td class="num">10,7%</td><td class="num">0,2%</td>
+      <td class="num">—</td><td class="num">—</td><td class="num">0,0%</td></tr>
+</table>
+<p><small class="note">* Sharpe do excesso sobre o CDI. Período 2005–2026 (21,5 anos),
+259 rebalanceamentos, exposição média 2,5×, volatilidade realizada de 10,4%
+contra alvo de 10%.</small></p>
+
+<figure>
+  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/patrimonio_40.png" alt="Patrimônio">
+  <figcaption>Patrimônio acumulado em escala logarítmica. Faixas sombreadas:
+  crise de 2008, COVID e o choque inflacionário de 2021–22.</figcaption>
+</figure>
+
+<h2 class="pb">8. Desempenho por ativo — e o achado que muda a leitura</h2>
+
+<figure>
+  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/desempenho_por_ativo.png" alt="Desempenho por ativo">
+  <figcaption>Contribuição anualizada de cada ativo. 31 de 40 contribuíram
+  positivamente — mas repare na escala: <strong>TRY=X está quatro vezes acima do
+  segundo colocado</strong>.</figcaption>
+</figure>
+
+<div class="callout bad">
+  <p><strong>O resultado depende da lira turca.</strong> TRY=X sozinha contribui
+  <strong>1,92% ao ano</strong> num excesso total sobre o CDI de ~6,5% — cerca de
+  30% de todo o resultado, vindo de um ativo entre 40.</p>
+</div>
+
+<table>
+  <tr><th>Universo</th><th class="num">Sharpe</th><th class="num">t</th><th class="num">CAGR</th></tr>
+  <tr class="hl"><td>40 ativos (base)</td><td class="num">0,60</td><td class="num">2,78</td><td class="num">17,2%</td></tr>
+  <tr class="bad"><td><strong>sem TRY=X</strong></td><td class="num"><strong>0,42</strong></td>
+      <td class="num"><strong>1,95</strong></td><td class="num">15,1%</td></tr>
+  <tr class="bad"><td>sem os 4 câmbios emergentes</td><td class="num">0,40</td><td class="num">1,86</td><td class="num">15,0%</td></tr>
+  <tr class="bad"><td>sem os 3 maiores contribuidores</td><td class="num">0,36</td><td class="num">1,68</td><td class="num">14,4%</td></tr>
+</table>
+
+<p><strong>Sem a lira, o universo de 40 rende 0,42 — praticamente igual aos 0,41
+do universo de 8.</strong> O ganho aparente da expansão veio quase todo de um
+ativo, e o t-stat volta para baixo do limiar de significância.</p>
+
+<h3>O que isso faz com a previsão registrada</h3>
+<p>Antes de rodar o backtest expandido, a previsão foi registrada no repositório
+(commit <code>88392ef</code>, anterior à existência do script):</p>
+<pre>Sharpe_novo = 0,51 × raiz(11,3 / 7,0) = 0,65</pre>
+
+<table>
+  <tr><th></th><th class="num">Sharpe</th></tr>
+  <tr><td>previsto pela teoria de diversificação (base)</td><td class="num">0,52</td></tr>
+  <tr><td>realizado <strong>com</strong> TRY=X</td><td class="num">0,60</td></tr>
+  <tr class="bad"><td>realizado <strong>sem</strong> TRY=X</td><td class="num"><strong>0,42</strong></td></tr>
+</table>
+
+<p>Descontando o ativo excepcional, o resultado fica <strong>abaixo</strong> do
+previsto — exatamente o terceiro cenário pré-registrado: <em>"a correlação média
+superestima a diversificação real"</em>. Em regimes de estresse os ativos se
+movem juntos, e a correlação média não captura isso.</p>
+
+<div class="callout">
+  <p><strong>Por que TRY=X permanece no universo.</strong> Foi selecionada pelo
+  funil mecânico, por correlação, antes de qualquer backtest. Removê-la agora
+  <em>porque sabemos que rendeu bem</em> seria overfitting ao contrário — a mesma
+  falha metodológica com o sinal invertido. Ela fica, e a sensibilidade fica
+  reportada ao lado.</p>
+</div>
+
+<div class="callout warn">
+  <p><strong>Risco adicional, não medido:</strong> a lira tem peso de
+  <strong>0,61</strong> numa exposição bruta de 3,00 — 20% do livro. O
+  dimensionamento por 1/volatilidade dá peso enorme a uma moeda que se
+  desvaloriza de forma <em>estável</em> (volatilidade diária baixa, tendência
+  forte). É o padrão clássico de risco de crash: parece calmo até não parecer.</p>
+</div>
+
+<h2 class="pb">9. As ordens geradas</h2>
+
+<div class="grid">
+  <div class="card"><div class="l">Ordens totais</div><div class="k">10.200</div><div class="d">2005–2026</div></div>
+  <div class="card"><div class="l">Compras</div><div class="k">5.049</div><div class="d">49,5%</div></div>
+  <div class="card"><div class="l">Vendas</div><div class="k">5.151</div><div class="d">50,5%</div></div>
+  <div class="card"><div class="l">Por rebalanceamento</div><div class="k">39,4</div><div class="d">259 rebalanceamentos</div></div>
+</div>
+
+<p>Uma <em>ordem</em> é uma mudança de peso entre dois rebalanceamentos. A lista
+completa está em <code>resultados/ordens_completas.csv</code> (10.200 linhas com
+data, ativo, lado, tamanho, peso final e posição resultante).</p>
+
+<h3>Amostra — o último rebalanceamento (16/07/2026)</h3>
+<table class="tight">
+  <tr><th>Data</th><th>Ativo</th><th>Lado</th><th class="num">Tamanho</th>
+      <th class="num">Peso final</th><th>Posição</th></tr>
+  <tr><td>2026-07-16</td><td>TRY=X</td><td>COMPRA</td><td class="num">0,0665</td><td class="num">+0,6125</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>ZC=F</td><td>VENDA</td><td class="num">0,0776</td><td class="num">−0,0349</td><td>vendido</td></tr>
+  <tr><td>2026-07-16</td><td>XLP</td><td>VENDA</td><td class="num">0,0066</td><td class="num">+0,0539</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>^BSESN</td><td>VENDA</td><td class="num">0,0067</td><td class="num">−0,0679</td><td>vendido</td></tr>
+  <tr><td>2026-07-16</td><td>XLV</td><td>VENDA</td><td class="num">0,0063</td><td class="num">+0,0475</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>ZW=F</td><td>VENDA</td><td class="num">0,0055</td><td class="num">+0,0264</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>XLU</td><td>VENDA</td><td class="num">0,0049</td><td class="num">+0,0491</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>VNQ</td><td>VENDA</td><td class="num">0,0046</td><td class="num">+0,0525</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>^HSI</td><td>VENDA</td><td class="num">0,0038</td><td class="num">+0,0482</td><td>comprado</td></tr>
+  <tr><td>2026-07-16</td><td>^AXJO</td><td>COMPRA</td><td class="num">0,0029</td><td class="num">+0,0714</td><td>comprado</td></tr>
+</table>
+
+<h3>Carteira na última data — 40 posições</h3>
+<p>26 compradas, 14 vendidas, exposição bruta 3,00× (no teto).</p>
+
+<table class="tight">
+  <tr><th>Comprado</th><th class="num">peso</th><th>Comprado</th><th class="num">peso</th>
+      <th>Vendido</th><th class="num">peso</th></tr>
+  <tr><td>TRY=X</td><td class="num">+0,613</td><td>^HSI</td><td class="num">+0,048</td><td>OJ=F</td><td class="num">−0,011</td></tr>
+  <tr><td>CAD=X</td><td class="num">+0,230</td><td>XLV</td><td class="num">+0,048</td><td>CC=F</td><td class="num">−0,012</td></tr>
+  <tr><td>IEF</td><td class="num">+0,181</td><td>LE=F</td><td class="num">+0,048</td><td>KC=F</td><td class="num">−0,016</td></tr>
+  <tr><td>JPY=X</td><td class="num">+0,159</td><td>EWJ</td><td class="num">+0,041</td><td>NG=F</td><td class="num">−0,021</td></tr>
+  <tr><td>INR=X</td><td class="num">+0,124</td><td>GLD</td><td class="num">+0,038</td><td>^JKSE</td><td class="num">−0,026</td></tr>
+  <tr><td>AUDUSD=X</td><td class="num">+0,114</td><td>XLE</td><td class="num">+0,036</td><td>SB=F</td><td class="num">−0,032</td></tr>
+  <tr><td>^AXJO</td><td class="num">+0,071</td><td>HG=F</td><td class="num">+0,033</td><td>HE=F</td><td class="num">−0,033</td></tr>
+  <tr><td>DBA</td><td class="num">+0,064</td><td>ZL=F</td><td class="num">+0,033</td><td>ZC=F</td><td class="num">−0,035</td></tr>
+  <tr><td>XLP</td><td class="num">+0,054</td><td>CT=F</td><td class="num">+0,028</td><td>^BSESN</td><td class="num">−0,068</td></tr>
+  <tr><td>VNQ</td><td class="num">+0,053</td><td>ZW=F</td><td class="num">+0,026</td><td>BRL=X</td><td class="num">−0,073</td></tr>
+  <tr><td>EFA</td><td class="num">+0,052</td><td>PL=F</td><td class="num">+0,024</td><td>ZAR=X</td><td class="num">−0,077</td></tr>
+  <tr><td>XLU</td><td class="num">+0,049</td><td>PA=F, EWT, BZ=F</td><td class="num">+0,022…</td>
+      <td>SEK=X, MXN=X, GBPUSD=X</td><td class="num">−0,105…</td></tr>
+</table>
+
+<h2 class="pb">10. Validação</h2>
+
+<h3>10.1 Robustez — 6 de 6 aprovados (era 4 de 6 com 8 ativos)</h3>
+<p>Critérios <strong>declarados antes da execução</strong>, para que não fosse
+possível olhar o resultado e inventar o critério que ele satisfaz.</p>
+
+<table>
+  <tr><th>#</th><th>Teste</th><th>Critério</th><th class="num">8 ativos</th><th class="num">40 ativos</th></tr>
+  <tr><td>A</td><td>Custos</td><td>superar o CDI com o dobro do custo</td>
+      <td class="num tick">ok</td><td class="num tick">ok</td></tr>
+  <tr><td>B</td><td>Janela de volatilidade</td><td>Sharpe ≥ 0,25 de 20 a 250 dias</td>
+      <td class="num tick">ok</td><td class="num tick">ok (mín. 0,54)</td></tr>
+  <tr><td>C</td><td>Sub-períodos</td><td>superar o CDI em 3 dos 4 blocos</td>
+      <td class="num cross">2/4</td><td class="num tick">3/4</td></tr>
+  <tr><td>D</td><td>Teto de alavancagem</td><td>com teto 2×, superar o CDI</td>
+      <td class="num tick">ok</td><td class="num tick">ok</td></tr>
+  <tr><td>E</td><td>Jackknife</td><td>Sharpe ≥ 0,25 retirando qualquer bloco</td>
+      <td class="num cross">0,19</td><td class="num tick">0,43</td></tr>
+  <tr><td>F</td><td>Horizonte do sinal</td><td>positivo em 3 dos 4 horizontes</td>
+      <td class="num tick">ok</td><td class="num tick">4/4</td></tr>
+</table>
+
+<p><small class="note">O jackknife do universo de 40 foi feito por <em>classe</em>
+(retirando todas as commodities, todo o câmbio, etc.), porque com 40 ativos
+retirar um de cada vez confirmaria o óbvio. Foi justamente isso que <strong>escondeu
+a dependência da lira</strong> — descoberta depois, pelo gráfico de contribuição.
+Uma lição metodológica: agregação esconde concentração.</small></p>
+
+<h3>10.2 Sub-períodos — o buraco que resiste a tudo</h3>
+<table>
+  <tr><th>Período</th><th class="num">Sharpe (40)</th><th class="num">CAGR</th>
+      <th class="num">CDI</th><th>Superou?</th></tr>
+  <tr class="ok"><td>2005–2010</td><td class="num">0,40</td><td class="num">17,3%</td><td class="num">12,9%</td><td>sim</td></tr>
+  <tr class="ok"><td>2011–2015</td><td class="num">1,04</td><td class="num">21,9%</td><td class="num">10,4%</td><td>sim</td></tr>
+  <tr class="bad"><td><strong>2016–2020</strong></td><td class="num"><strong>−0,23</strong></td>
+      <td class="num">4,7%</td><td class="num">7,8%</td><td><strong>não</strong></td></tr>
+  <tr class="ok"><td>2021–2026</td><td class="num">1,20</td><td class="num">25,1%</td><td class="num">11,3%</td><td>sim</td></tr>
+</table>
+
+<p><strong>2016–2020 é a única fraqueza que sobreviveu a tudo</strong> que
+tentamos: mais ativos, horizonte adaptativo, todas as variações de parâmetro.</p>
+
+<h4>A causa foi medida</h4>
+<table>
+  <tr><th>Período</th><th class="num">Trocas de direção/ano</th><th class="num">Duração média da tendência</th></tr>
+  <tr><td>2005–2010</td><td class="num">8,3</td><td class="num"><strong>11,5 meses</strong></td></tr>
+  <tr><td>2011–2015</td><td class="num">11,0</td><td class="num">8,7 meses</td></tr>
+  <tr><td>2016–2020</td><td class="num">14,0</td><td class="num"><strong>6,9 meses</strong></td></tr>
+  <tr><td>2021–2026</td><td class="num">12,7</td><td class="num">7,5 meses</td></tr>
+</table>
+<p>O sinal olha 12 meses para trás. Com tendências de 7 meses, o robô entra
+sistematicamente <strong>atrasado</strong> — a tendência já virou quando ele se
+posiciona. É o "chicote", medido.</p>
+
+<h3>10.3 Hipóteses testadas e refutadas</h3>
+<table>
+  <tr><th>Hipótese</th><th>Teste</th><th>Veredito</th></tr>
+  <tr><td>O resíduo do MARÉ carrega estrutura setorial</td>
+      <td>correlação intra vs. entre setores</td>
+      <td class="cross">refutada — a PCA já remove 97,7%</td></tr>
+  <tr><td>A divergência do MIYAGI vem do estimador de volatilidade</td>
+      <td>janela de 60 dias vs. EWMA</td>
+      <td class="cross">refutada — −20,4% vs −20,3%</td></tr>
+  <tr><td>A queda pós-2016 é decaimento pós-publicação</td>
+      <td>Sharpe antes vs. depois de 2012</td>
+      <td class="cross">refutada — pós foi <em>melhor</em> (0,43 vs 0,35)</td></tr>
+  <tr><td>Adaptar o horizonte ajuda no universo grande</td>
+      <td>walk-forward em 40 ativos</td>
+      <td class="cross">refutada — 0,48 contra 0,60 do fixo</td></tr>
+</table>
+
+<p><strong>Por que o walk-forward deixou de ajudar:</strong> adaptar horizonte e
+diversificar ativos são <em>substitutos</em>, não complementos. Ambos defendem
+contra depender de um único regime de tendência. Com 40 ativos espalhados,
+sempre há algum mercado em tendência longa — e a troca de horizonte vira giro
+sem ganho.</p>
+
+<h3>10.4 Ressalva de múltiplos testes</h3>
+<p>Foram testadas quatro combinações de universo × parametrização. Com
+erro-padrão do Sharpe de ~0,22 em 21 anos, o intervalo observado (0,41 a 0,60) é
+compatível com o que puro ruído produziria ao se escolher o máximo de quatro
+tentativas. A tabela completa das quatro células está no repositório justamente
+para que ninguém precise adivinhar quantas foram testadas.</p>
+
+<h2 class="pb">11. Uso de IA generativa</h2>
+<p><small class="note">Detalhamento completo em <code>ia_log.md</code>.
+Critério 6 do edital = 15% da nota.</small></p>
+
+<h3>O uso de maior valor não foi escrever código</h3>
+<p>Foi <strong>revisão adversarial</strong>. Em quatro ocasiões a IA encontrou
+erros que produziam números plausíveis e errados — o tipo mais perigoso, porque
+não quebra nada e não aparece em teste.</p>
+
+<table>
+  <tr><th>Erro encontrado</th><th>Impacto</th></tr>
+  <tr><td>Vazamento temporal no backtest do MARÉ</td>
+      <td>49% da série de "design" era, na verdade, validação. Levou ao abandono da estratégia.</td></tr>
+  <tr><td>Erro de calendário no MIYAGI <br><small class="note">no código que a própria IA escreveu</small></td>
+      <td>CDI subestimado de 10,68% para 9,21%; Sharpe inflado em ~0,14.</td></tr>
+  <tr><td>Teste de sanidade que afirmava algo falso</td>
+      <td>Imprimia "Sharpe 0,41 está na faixa 0,5–1,0" — não está.</td></tr>
+  <tr><td>Rótulos de gráfico fora da área visível</td>
+      <td>Legendas posicionadas antes das curvas existirem.</td></tr>
+</table>
+
+<h3>Previsão registrada antes do teste</h3>
+<p>O commit <code>88392ef</code> registra a previsão de Sharpe 0,65 <em>antes</em>
+da existência do script de backtest, com os critérios de julgamento declarados
+junto. O timestamp do git torna impossível ter escrito a previsão depois de ver
+o resultado.</p>
+
+<h3>Limitações encontradas</h3>
+<ul>
+  <li><strong>A IA erra de forma plausível.</strong> Dois dos quatro bugs estavam
+  em código que ela mesma escreveu, e produziam números perfeitamente razoáveis.</li>
+  <li><strong>Ela especula com confiança excessiva.</strong> Atribuiu o salto de
+  2021–2026 às commodities; o jackknife contradisse (retirá-las <em>melhora</em>
+  o resultado). A atribuição era plausível e não medida.</li>
+  <li><strong>Ela tende a concordar.</strong> Ao ser questionada sobre dividir os
+  dados em treino e teste, precisou ser instruída a verificar o edital antes de
+  responder — e a leitura mostrou que a exigência não existia.</li>
+  <li><strong>Ambiente sem acesso a dados pagos</strong>, contornado com Yahoo
+  Finance.</li>
+</ul>
+
+<h2>12. Pendências</h2>
+
+<h3><span class="tag t-alto">ALTO</span> &nbsp;Montar o relatório de 5 páginas</h3>
+<p>Decisões de conteúdo, com espaço apertado. Sugestão de prioridade:</p>
+<ol>
+  <li>Conceito + robô (obrigatório, 25%)</li>
+  <li>O funil e a árvore de apostas independentes — visual forte</li>
+  <li>Resultados <strong>com</strong> a dependência da lira declarada</li>
+  <li>O buraco de 2016–2020 e sua causa medida</li>
+  <li>IA como revisora adversarial (15%)</li>
+</ol>
+
+<h3><span class="tag t-med">MÉDIO</span> &nbsp;Decisões pendentes</h3>
+<ul>
+  <li><strong>Repositório público</strong> durante a competição, sob nome real.</li>
+  <li><strong><code>CLAUDE.md</code> desatualizado</strong> — ainda lista "VETOR ou
+  GIRO" como nome do robô.</li>
+  <li><strong>MARÉ sem commit</strong> — a correção do bug segue local. Recomendação:
+  commitar, é evidência do trabalho de auditoria.</li>
+</ul>
+
+<h3><span class="tag t-baixo">BAIXO</span> &nbsp;Premissas a declarar</h3>
+<ul>
+  <li>Custos são premissa (0,1%/trade), não medição contra execução real.</li>
+  <li>Futuros contínuos do Yahoo têm descontinuidade de rolagem.</li>
+  <li>Retornos em moeda local, sem conversão do PnL.</li>
+  <li>A carteira atual tem 20% do livro em TRY=X — concentração criada pelo
+  dimensionamento por 1/volatilidade.</li>
+</ul>
+
+<div class="callout">
+  <p><strong>Sobre a narrativa.</strong> O edital diz que complexidade não pontua
+  e que "estratégias simples e bem executadas podem obter desempenho superior a
+  estratégias complexas mal justificadas". Temos as duas metades: uma estratégia
+  complexa testada com rigor e descartada, e uma simples que sobreviveu ao
+  escrutínio — com as fraquezas medidas e reportadas, inclusive as que
+  encontramos contra nosso próprio interesse.</p>
+</div>
+
+</body>
+</html>
