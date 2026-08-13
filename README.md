@@ -476,6 +476,113 @@ força é o **câmbio** (pior classe para se retirar, −0,17).
 Nenhuma foi adotada. Quem garimpa parâmetro não termina com a configuração que
 perde em três de três dimensões testadas.
 
+---
+
+## ⚠️ CORREÇÃO MAIOR: o carrego cambial (interest rate carry)
+
+`python carrego.py` → `python resultado_final.py`
+
+### O erro
+
+O backtest usava **apenas a variação do preço à vista** das moedas. Para câmbio
+isso está errado, e o erro é enorme em moedas de juro alto.
+
+Para ficar comprado em USD/TRY (vendido em lira) é preciso tomar lira
+emprestada e **pagar a taxa turca** — que chegou a 40–50% ao ano, contra 0–5,5%
+nos EUA. O preço à vista da lira caiu 18% ao ano e isso parecia lucro. O
+carrego que teríamos pago era da mesma ordem.
+
+Há um argumento teórico que fecha o caso: pela paridade descoberta de juros,
+moedas de juro alto se desvalorizam aproximadamente pelo diferencial. **O fato
+de a lira ter caído 18% ao ano é, ele mesmo, evidência de que o diferencial era
+dessa ordem.**
+
+### A correção, com dados reais de juros
+
+Séries do FRED (IMF/IFS). Cada par virou um índice de **retorno total**:
+`retorno_total = retorno_do_preço + carrego`.
+
+| par | só preço | com carrego | diferença |
+|---|---|---|---|
+| **TRY=X** | +18,0% a.a. | **−1,6% a.a.** | **−19,6 p.p.** |
+| BRL=X | +2,5% | −10,3% | −12,8 |
+| ZAR=X | +4,3% | −0,7% | −5,0 |
+| MXN=X | +1,9% | −2,8% | −4,7 |
+| INR=X | +3,4% | −1,5% | −4,9 |
+| JPY=X | +1,8% | **+3,3%** | **+1,6** |
+
+A paridade de juros se confirma quase exatamente: a lira sai de +18% para
+−1,6%. O iene vai na direção **oposta** (+1,6%), porque os juros japoneses eram
+menores que os americanos — ficar comprado em USD/JPY *recebe* carrego.
+
+<em>Limitação:</em> G10 (AUD, CAD, GBP, SEK, EUR) não tem série pública completa
+no FRED e ficou sem correção. O diferencial dessas moedas contra o dólar é de
+0–5 p.p., ordem de grandeza muito menor que o da lira, mas o erro residual
+existe e está declarado.
+
+### O RESULTADO FINAL — comparação justa
+
+| universo | sem carrego | **com carrego (correto)** |
+|---|---|---|
+| 8 ativos | 0,41 (t=1,88) | **0,36 (t=1,64)** |
+| **40 ativos** | 0,60 (t=2,78) | **0,50 (t=2,30)** |
+
+**A expansão do universo ajudou de verdade: 0,36 → 0,50.** E só a versão de 40
+ativos mantém significância estatística (t > 2).
+
+### A previsão de diversificação se confirma nos dados limpos
+
+A metodologia registrada em `88392ef` era escalar o Sharpe pela raiz das
+apostas efetivas. Aplicada aos dados corrigidos:
+
+```
+previsto = 0,36 × raiz(11,2 / 7,0) = 0,36 × 1,265 = 0,455
+realizado                                        = 0,50
+erro                                             = +0,045
+```
+
+Dentro da banda de ±0,10 que foi **declarada como "confirmada" antes de
+qualquer resultado existir**. O ganho de diversificação era real; o que estava
+errado era o instrumento, não a teoria.
+
+<small class="note">Ressalva: a previsão original (0,65) usava o walk-forward
+sobre dados não corrigidos. O número acima é a mesma fórmula recalculada sobre
+a base limpa — a metodologia foi registrada antes, o insumo mudou.</small>
+
+### Concentração depois da correção
+
+| | Sharpe | t |
+|---|---|---|
+| universo completo (40) | 0,50 | 2,30 |
+| sem TRY=X | 0,41 | 1,89 |
+| sem todos os câmbios emergentes | 0,40 | 1,87 |
+| sem câmbio nenhum | 0,43 | 1,97 |
+
+A dependência da lira **caiu pela metade** (impacto de −0,18 para −0,09), mas
+ela segue como maior contribuidora (+1,08% a.a. contra +1,92% antes). Mesmo sem
+nenhuma moeda, o universo de 40 rende 0,43 — ainda acima dos 0,36 do universo
+de 8.
+
+### Sub-períodos, corrigidos
+
+| período | CAGR | Sharpe | CDI | |
+|---|---|---|---|---|
+| 2005–2010 | 19,8% | 0,58 | 12,9% | ok |
+| 2011–2015 | 16,8% | 0,62 | 10,4% | ok |
+| **2016–2020** | **2,4%** | **−0,45** | 7,8% | **não** |
+| 2021–2026 | 24,4% | 1,15 | 11,3% | ok |
+
+O buraco de 2016–2020 **piorou** com a correção (−0,23 → −0,45). Continua sendo
+a fraqueza que resiste a tudo.
+
+---
+
+## Histórico: a análise que levou à correção do carrego
+
+<small class="note">Mantido porque documenta como o erro foi encontrado. Os
+números abaixo são os <strong>não corrigidos</strong> e foram superados pela
+seção acima.</small>
+
 ### ⚠️ Concentração: o resultado depende da lira turca
 
 O gráfico de contribuição por ativo revelou o que o jackknife por classe tinha
