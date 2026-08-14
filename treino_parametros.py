@@ -13,19 +13,21 @@ E, principalmente: qual é a forma HONESTA de fazer isso?
 Este arquivo implementa as duas formas e compara. A diferença entre elas é o
 ponto pedagógico do trabalho.
 
-    ABORDAGEM 1 — WALK-FORWARD (adaptativa e causal)
+    ABORDAGEM 1 — WALK-FORWARD (causal na escolha do horizonte)
     A cada mês, o robô escolhe o horizonte do sinal olhando APENAS o passado.
     Em março de 2013 ele decide com o que sabia em março de 2013. Não existe
-    look-ahead por construção, e os 21 anos continuam utilizáveis.
+    look-ahead do horizonte por construção. Isso não torna os 21 anos fora da
+    amostra: o universo histórico ainda foi selecionado com dados futuros.
 
     ABORDAGEM 2 — TREINO/TESTE CLÁSSICO
     Escolhe o melhor horizonte em 2007-2016, congela, e aplica em 2017-2026.
 
 POR QUE TESTAR O HORIZONTE, E NÃO OUTRA COISA
 ---------------------------------------------
-Não foi escolha arbitrária. O diagnóstico de períodos (analise_periodos.py)
-mediu que a duração média das tendências caiu de 11,5 meses (2005-2010) para
-6,9 meses (2016-2020) — uma queda de 40%.
+Não foi escolha arbitrária. Um diagnóstico histórico anterior estimou queda da
+duração média das tendências de 11,5 para 6,9 meses. O script auditado atual
+usa pesos derivados e produz outra medição; os valores antigos são preservados
+apenas como registro da hipótese que motivou este teste.
 
 O sinal olha 12 meses para trás. Se as tendências duram 7, o robô entra
 atrasado por construção. Existe portanto uma RAZÃO ECONÔMICA, medida antes de
@@ -50,6 +52,7 @@ visível.
 
 from __future__ import annotations
 
+import argparse
 from contextlib import contextmanager
 
 import numpy as np
@@ -60,6 +63,7 @@ from backtest_miyagi import (
     DIAS_UTEIS_ANO, calcular_metricas, carregar_dados,
     calcular_retornos, rodar_backtest,
 )
+from dados_miyagi import selecionar_etfs
 
 # Família de horizontes candidatos. Todos são valores usados na literatura de
 # momentum -- não é uma grade fina desenhada para garimpar o melhor número.
@@ -91,7 +95,9 @@ def sharpe_de(r: pd.Series, cdi: pd.Series) -> float:
     return float(excesso.mean() / excesso.std() * np.sqrt(DIAS_UTEIS_ANO))
 
 
-def series_por_horizonte(precos, retornos, cdi) -> dict[int, pd.Series]:
+def series_por_horizonte(
+    precos, retornos, cdi, ativos_financiados: set[str] | None = None,
+) -> dict[int, pd.Series]:
     """Roda o backtest uma vez para cada horizonte candidato.
 
     Cada série é causal por construção (o motor já garante isso). Ter todas
@@ -102,7 +108,10 @@ def series_por_horizonte(precos, retornos, cdi) -> dict[int, pd.Series]:
     for h in HORIZONTES:
         print(f"    rodando horizonte {h}-1 ...", flush=True)
         with parametro(JANELA_SINAL_MESES=h):
-            out[h] = rodar_backtest(precos, retornos, cdi)["retornos"]
+            out[h] = rodar_backtest(
+                precos, retornos, cdi,
+                ativos_financiados=ativos_financiados,
+            )["retornos"]
     return out
 
 
@@ -147,15 +156,31 @@ def walk_forward(series: dict[int, pd.Series], cdi: pd.Series) -> tuple[pd.Serie
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--financiamento", choices=["overlay", "etfs"], default="etfs",
+        help="etfs = stress financiado atual | overlay = estimando histórico",
+    )
+    args = ap.parse_args()
     print("=" * 84)
     print("MIYAGI — PARÂMETROS TREINADOS: WALK-FORWARD vs TREINO/TESTE")
     print("=" * 84)
 
     precos, cdi = carregar_dados()
     retornos = calcular_retornos(precos)
+    financiados = (
+        selecionar_etfs(list(precos.columns))
+        if args.financiamento == "etfs" else set()
+    )
+    print(f"Convenção de financiamento: {args.financiamento}")
+    if financiados:
+        print("Stress a CDI sobre ETFs com retornos ainda em moeda de origem;")
+        print("não é uma carteira implementável em reais.")
 
     print("\n[1/3] Rodando cada horizonte candidato...")
-    series = series_por_horizonte(precos, retornos, cdi)
+    series = series_por_horizonte(
+        precos, retornos, cdi, ativos_financiados=financiados
+    )
 
     print("\n[2/3] Walk-forward (decisão mensal, só passado)...")
     r_wf, escolhas = walk_forward(series, cdi)
@@ -183,7 +208,7 @@ def main() -> None:
     r_treinado = series[h_treinado]
 
     print("\n" + "=" * 84)
-    print(f"RESULTADO NO HOLDOUT ({INICIO_HOLDOUT}-2026) — o que realmente importa")
+    print(f"PSEUDO-HOLDOUT JÁ OBSERVADO ({INICIO_HOLDOUT}-2026)")
     print("=" * 84)
     cdi_hold = calcular_metricas(
         cdi.reindex(r_base.index).fillna(0.0).loc[INICIO_HOLDOUT:], cdi)["cagr"]
@@ -193,7 +218,7 @@ def main() -> None:
 
     linhas = [
         bloco(r_base, "Base (12-1 fixo, sem treino)", INICIO_HOLDOUT, "2026"),
-        bloco(r_wf, "1. Walk-forward (causal)", INICIO_HOLDOUT, "2026"),
+        bloco(r_wf, "1. Walk-forward (horizonte causal)", INICIO_HOLDOUT, "2026"),
         bloco(r_treinado, f"2. Treino/teste ({h_treinado}-1 congelado)",
               INICIO_HOLDOUT, "2026"),
     ]
@@ -208,7 +233,7 @@ def main() -> None:
     print(f"  {'abordagem':<34}{'CAGR':>8}{'Vol':>8}{'Sharpe':>9}{'t':>7}{'Max DD':>9}")
     print("  " + "-" * 76)
     for d in [bloco(r_base, "Base (12-1 fixo, sem treino)"),
-              bloco(r_wf, "1. Walk-forward (causal)"),
+              bloco(r_wf, "1. Walk-forward (horizonte causal)"),
               bloco(r_treinado, f"2. Treino/teste ({h_treinado}-1 congelado)")]:
         print(f"  {d['nome']:<34}{d['cagr']:>8.1%}{d['vol']:>8.1%}"
               f"{d['sharpe']:>9.2f}{d['t']:>7.2f}{d['dd']:>9.1%}")
@@ -245,10 +270,10 @@ def main() -> None:
 
   COMO INTERPRETAR CADA UM:
 
-  O walk-forward é o único cujo número pode ser levado a sério como
-  estimativa de desempenho futuro. Ele nunca usou informação que não
-  estivesse disponível na hora da decisão -- nem por parte de quem
-  escreveu o código.
+  O walk-forward protege apenas a escolha mensal do horizonte: ela usa o
+  passado disponível na data. Ele não é estimativa limpa de desempenho futuro,
+  porque o universo foi escolhido com a amostra completa e o período já havia
+  sido analisado pela equipe.
 
   O treino/teste tem uma contaminação que nenhum código conserta: nós já
   tínhamos analisado 2017-2026 antes de rodar este teste. Sabíamos o

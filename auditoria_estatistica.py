@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Inferência adversarial para a série final, sem escolher o melhor resultado.
+"""Inferência adversarial para as convenções auditadas, sem escolher a melhor.
 
 Reporta em conjunto o teste ingênuo, erros Newey--West e bootstrap em blocos.
 Os comprimentos de bloco (21, 63 e 252 pregões) representam aproximadamente
 um mês, um trimestre e um ano; todos são mostrados, nenhum é selecionado pelo
 intervalo que favorece a estratégia.
+
+O padrão ``overlay`` preserva o estimando histórico. A opção ``etfs`` cobra
+CDI da exposição líquida nos ETFs, mas continua sendo um stress sob o numerário
+do projeto, não um retorno implementável em reais.
 """
 
 from __future__ import annotations
 
+import argparse
 from math import sqrt
 from pathlib import Path
 
@@ -17,7 +22,7 @@ import pandas as pd
 from scipy import stats
 
 from backtest_miyagi import calcular_metricas, calcular_retornos, rodar_backtest
-from dados_miyagi import AQUI, carregar_dados_oficiais
+from dados_miyagi import AQUI, carregar_dados_oficiais, selecionar_etfs
 
 SAIDA = AQUI / "resultados"
 SEMENTE = 20260813
@@ -63,9 +68,20 @@ def bootstrap_blocos(
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--financiamento", choices=["overlay", "etfs"], default="overlay",
+        help="convenção de caixa a auditar",
+    )
+    args = ap.parse_args()
     SAIDA.mkdir(exist_ok=True)
-    precos, cdi, _ = carregar_dados_oficiais()
-    res = rodar_backtest(precos, calcular_retornos(precos), cdi)
+    precos, cdi, universo = carregar_dados_oficiais()
+    financiados = selecionar_etfs(universo) if args.financiamento == "etfs" else set()
+    sufixo = "_etfs" if financiados else ""
+    res = rodar_backtest(
+        precos, calcular_retornos(precos), cdi,
+        ativos_financiados=financiados,
+    )
     retornos = res["retornos"].dropna()
     excesso = retornos - cdi.reindex(retornos.index).fillna(0.0)
     x = excesso.to_numpy()
@@ -109,7 +125,10 @@ def main() -> None:
         })
 
     testes = pd.DataFrame(linhas)
-    testes.to_csv(SAIDA / "auditoria_testes_inferencia.csv", index=False)
+    testes.to_csv(
+        SAIDA / f"auditoria_testes_inferencia{sufixo}.csv", index=False,
+        float_format="%.12g",
+    )
 
     boots = []
     for bloco in (21, 63, 252):
@@ -117,7 +136,10 @@ def main() -> None:
         boots.append({"bloco_dias": bloco, "ic_2_5": baixo,
                       "mediana": mediana, "ic_97_5": alto})
     boots = pd.DataFrame(boots)
-    boots.to_csv(SAIDA / "auditoria_bootstrap_sharpe.csv", index=False)
+    boots.to_csv(
+        SAIDA / f"auditoria_bootstrap_sharpe{sufixo}.csv", index=False,
+        float_format="%.12g",
+    )
 
     metricas = calcular_metricas(retornos, cdi)
     resumo = pd.Series({
@@ -130,8 +152,12 @@ def main() -> None:
         "p_bonferroni_4_unilateral": min(1.0, p_unilateral * TESTES_DECLARADOS_MINIMOS),
         "testes_contados_bonferroni": TESTES_DECLARADOS_MINIMOS,
     }, name="valor")
-    resumo.to_csv(SAIDA / "auditoria_estatistica_resumo.csv")
+    resumo.to_csv(
+        SAIDA / f"auditoria_estatistica_resumo{sufixo}.csv",
+        float_format="%.12g",
+    )
 
+    print(f"Convenção de financiamento: {args.financiamento}\n")
     print(resumo.to_string())
     print("\nTestes de média excedente:")
     print(testes.to_string(index=False, float_format=lambda z: f"{z:.4f}"))

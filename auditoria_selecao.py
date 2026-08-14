@@ -10,10 +10,13 @@ reestima anualmente usando somente dados existentes até cada corte.
 É um teste *pseudo* point-in-time: os CSVs do Yahoo e do FRED não são vintages
 arquivados na data original. Logo, ele remove o vazamento explícito do corte e
 do clustering, mas não prova ausência de revisões ou sobrevivência do provedor.
+Quando solicitado, o encargo dos ETFs é ainda um stress a CDI sobre retornos em
+moeda de origem, e não transforma o resultado em uma carteira implementável.
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +26,7 @@ from scipy.spatial.distance import squareform
 
 from backtest_miyagi import calcular_metricas, calcular_retornos, rodar_backtest
 from dados_miyagi import (AQUI, alinhar_ao_calendario, carregar_cdi,
-                          carregar_pool_oficial)
+                          carregar_pool_oficial, selecionar_etfs)
 from funil_expandido import (CORTE_CLUSTER, correlacao_pareada, elegiveis,
                              medoide, retornos_mensais)
 
@@ -52,6 +55,12 @@ def selecionar_ate(precos: pd.DataFrame, corte: pd.Timestamp) -> list[str]:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--financiamento", choices=["overlay", "etfs"], default="overlay",
+        help="convenção de caixa a auditar",
+    )
+    args = ap.parse_args()
     SAIDA.mkdir(exist_ok=True)
     pool = carregar_pool_oficial()
     cdi = carregar_cdi()
@@ -84,14 +93,20 @@ def main() -> None:
         anterior = atual
 
     tabela = pd.DataFrame(registros)
-    tabela.to_csv(SAIDA / "auditoria_universo_point_in_time.csv", index=False)
+    sufixo = "_etfs" if args.financiamento == "etfs" else ""
+    tabela.to_csv(
+        SAIDA / f"auditoria_universo_point_in_time{sufixo}.csv", index=False,
+        float_format="%.12g",
+    )
 
     todos = sorted(set().union(*map(set, universos.values())))
     precos = alinhar_ao_calendario(pool[todos], cdi.index)
     retornos = calcular_retornos(precos)
     primeiro = min(universos)
+    financiados = selecionar_etfs(todos) if args.financiamento == "etfs" else set()
     res = rodar_backtest(
-        precos, retornos, cdi, universo_por_data=universos, inicio=primeiro
+        precos, retornos, cdi, universo_por_data=universos, inicio=primeiro,
+        ativos_financiados=financiados,
     )
     metricas = calcular_metricas(res["retornos"], cdi)
     resumo = pd.Series({
@@ -103,8 +118,12 @@ def main() -> None:
         "max_drawdown": metricas["max_drawdown"],
         "rotulo_metodologico": "pseudo-point-in-time; dados sem vintage",
     }, name="valor")
-    resumo.to_csv(SAIDA / "auditoria_selecao_resumo.csv")
+    resumo.map(
+        lambda valor: f"{valor:.12g}"
+        if isinstance(valor, (float, np.floating)) else valor
+    ).to_csv(SAIDA / f"auditoria_selecao_resumo{sufixo}.csv")
 
+    print(f"Convenção de financiamento: {args.financiamento}\n")
     print(tabela[["data_corte", "inicio_vigencia", "n_ativos",
                   "jaccard_vs_ano_anterior"]].to_string(index=False))
     print("\nResultado 2016+ com seleção anual defasada:")

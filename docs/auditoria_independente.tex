@@ -10,7 +10,7 @@
 \hypersetup{colorlinks=true,linkcolor=navy,urlcolor=navy}
 \pagestyle{fancy}\fancyhf{}
 \lhead{\small\color{navy}\textbf{MIYAGI - auditoria independente}}
-\rhead{\small 13/08/2026}\cfoot{\thepage}
+\rhead{\small 14/08/2026}\cfoot{\thepage}
 \setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
 \setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=3pt}
 \setlist[enumerate]{leftmargin=6mm,itemsep=2pt,topsep=3pt}
@@ -26,11 +26,13 @@
 {\small Estratégia de time-series momentum multiativo - Desafio Quant AI 2026}
 
 \begin{callout}
-\textbf{Veredito.} A estratégia continua positiva e passa os seis critérios de
-robustez declarados. Porém, o Sharpe auditado é \textbf{0,47}, não 0,50, e a
-evidência estatística é marginal. O histórico não pode ser chamado integralmente
-fora da amostra, e o painel mistura instrumentos com economias incompatíveis.
-Este é um proxy acadêmico de pesquisa, não ainda um retorno implementável.
+\textbf{Veredito.} O overlay histórico tem Sharpe \textbf{0,48}, mas soma CDI a
+11 ETFs cujo adjusted close já é retorno total. Ao financiar somente essas
+pernas a CDI, o Sharpe cai para \textbf{0,13} e apenas três dos seis critérios
+de robustez passam. O histórico não é integralmente fora da amostra e o painel
+mistura economias incompatíveis. Este é um proxy acadêmico, não retorno
+implementável. Como os retornos permanecem nas moedas de origem, 0,13 é um
+stress contábil sob o numerário do projeto, não uma carteira em reais.
 \end{callout}
 
 \section*{Resumo quantitativo}
@@ -39,15 +41,17 @@ Este é um proxy acadêmico de pesquisa, não ainda um retorno implementável.
 Versão & CAGR & Vol. & Sharpe & Max DD\\
 \midrule
 Relatório anterior & 15,9\% & 10,5\% & 0,50 & -23,0\%\\
-\textbf{Motor auditado} & \textbf{15,6\%} & \textbf{10,5\%} & \textbf{0,47} & \textbf{-24,1\%}\\
-Seleção anual defasada, 2016-2026 & 12,9\% & 10,6\% & 0,34 & -25,0\%\\
+Overlay após auditoria do motor & 15,7\% & 10,5\% & 0,48 & -24,0\%\\
+\textbf{11 ETFs financiados a CDI} & \textbf{11,5\%} & \textbf{10,5\%} & \textbf{0,13} & \textbf{-25,8\%}\\
+Seleção anual 2016-2026, ETFs financiados & 9,7\% & 10,6\% & 0,06 & -28,5\%\\
 \bottomrule
 \end{tabularx}
 
 \textbf{O que mudou no motor:} retorno calculado com
-\texttt{fill\_method=None}; painel corrigido usado em todos os scripts; pesos
+\texttt{fill\_method=None}; painel com proxy de carry usado em todos os scripts; pesos
 efetivos derivam entre rebalanceamentos; contribuição usa o peso anterior ao
-retorno; lacunas e exposição sem retorno são registradas.
+retorno; a idade da cotação é limitada uma única vez; lacunas e exposição sem
+retorno são registradas.
 
 \section*{Achados prioritários}
 \begin{enumerate}
@@ -62,11 +66,11 @@ de 15 anos nem poderia ser executada em 2005 sobre um pool iniciado em 2000.
 O padrão antigo de \texttt{pct\_change()} preenchia buracos e criava saltos de
 reabertura. A opção explícita sem preenchimento reproduzia o 0,50 documentado,
 mas ainda deixava posições ativas durante lacunas.
-\item \high{ALTO} \textbf{Economia dos instrumentos.} O painel soma CDI a ETFs,
-índices de preço, futuros contínuos e FX. Essa soma só é correta se todas as
-pernas arriscadas forem retornos excedentes financiados, o que não ocorre.
+\item \critical{CRÍTICO} \textbf{Financiamento dos ETFs.} O painel soma CDI a
+ETFs, índices, futuros e FX. Nos 11 ETFs, cobrar CDI da exposição líquida reduz
+o Sharpe de 0,48 para 0,13; o encargo médio medido é 3,65 p.p. ao ano.
 \item \high{ALTO} \textbf{Inferência frágil.} Autocorrelação, caudas e o caminho
-de pesquisa tornam t=2,19 insuficiente para uma alegação forte de significância.
+de pesquisa tornam t=2,20 insuficiente para uma alegação forte de significância.
 \end{enumerate}
 
 \newpage
@@ -76,8 +80,11 @@ de pesquisa tornam t=2,19 insuficiente para uma alegação forte de significânc
 O código anterior aplicava o mesmo vetor de pesos todos os dias do mês. Isso
 equivale a restaurar diariamente os pesos-alvo, sem cobrar as negociações dessa
 restauração. O motor auditado mantém quantidades/notionais entre datas mensais e
-deixa os pesos derivarem com preços e patrimônio. A mudança reduz o Sharpe de
-0,50 para 0,47 e aumenta o drawdown de -23,0\% para -24,1\%.
+deixa os pesos derivarem com preços e patrimônio. O conjunto das correções do
+motor muda o Sharpe de 0,50 para 0,48 e o drawdown de -23,0\% para
+-24,0\%; não se atribui toda a diferença à deriva sem contrafactual isolado.
+Testes novos verificam a fórmula analítica, o giro seguinte e a interrupção
+quando o patrimônio fica não positivo.
 
 \subsection*{1.2 Atribuição temporal}
 O relatório atribuía o retorno do dia de rebalanceamento à carteira nova. A
@@ -87,11 +94,17 @@ de cada retorno. TRY continua sendo a maior contribuição, agora cerca de
 +1,16\% ao ano, mas a última posição correta é vendida.
 
 \subsection*{1.3 Lacunas}
-Foram identificadas \textbf{60 lacunas internas maiores que cinco dias}. Em
-\textbf{330 de 5.386 dias} de carregamento (6,1\%) havia posição ativa e ao menos
-um retorno ausente. A exposição absoluta média nesses dias foi 6,5\%; o máximo,
-44,2\%. O motor mantém P\&L zero onde não há retorno e registra a exposição, mas
-isso é uma convenção de diagnóstico, não uma cotação observada.
+Depois do preenchimento máximo permitido, restam \textbf{52 lacunas internas}
+no calendário oficial. Em
+\textbf{489 de 5.387 observações diárias} (9,1\%) havia posição ativa e ao menos
+um retorno ausente. A exposição absoluta média nesses dias foi 6,8\%; o máximo,
+45,23\% no overlay e 45,25\% no stress financiado. O motor mantém P\&L zero onde
+não há retorno e registra a exposição, mas isso é uma convenção de diagnóstico,
+não uma cotação observada.
+
+O alinhamento anterior aplicava \texttt{ffill(limit=5)} duas vezes; valores já
+imputados renovavam a própria idade e podiam atravessar até dez datas. O novo
+teste garante que o limite conta desde a última cotação realmente observada.
 
 \begin{callout}
 \textbf{Decisão correta:} não interpolar preços nem inventar retornos. Para uma
@@ -117,6 +130,25 @@ collateral, desde que cada série arriscada seja um retorno excedente de contrat
 Não é defensável de forma uniforme para o painel atual. Também faltam roll,
 borrow de posições vendidas, margem, haircuts e custos específicos.
 
+\begin{tabularx}{\textwidth}{Xrrrr}
+\toprule
+Convenção, universo fixo & CAGR & Vol. & Sharpe & Max DD\\
+\midrule
+Overlay histórico & 15,7\% & 10,5\% & 0,48 & -24,0\%\\
+11 ETFs financiados a CDI & 11,5\% & 10,5\% & 0,13 & -25,8\%\\
+ETFs + índices financiados, stress & 10,0\% & 10,5\% & -0,01 & -26,9\%\\
+\bottomrule
+\end{tabularx}
+
+A exposição líquida média aos ETFs é 34,5\% do patrimônio; a bruta, 74,5\%.
+É a exposição \textit{líquida assinada}, não os 2,5x brutos do portfólio, que
+determina o encargo nesta convenção. O stress com índices não é correção
+completa porque dividendos, FX e instrumento negociável continuam ausentes.
+O stress com ETFs tampouco resolve a conversão cambial: cobra CDI de retornos
+que continuam denominados nas moedas de origem.
+Deslocar o carry em 21 pregões muda o Sharpe do overlay de 0,476 para 0,466;
+isso mede sensibilidade, mas não cria vintages.
+
 \newpage
 \section*{2. Viés de seleção}
 
@@ -136,13 +168,14 @@ obter um resultado melhor. Por isso o primeiro corte possível é dezembro de
 \toprule
 Período & CAGR & Vol. & Sharpe & Max DD\\
 \midrule
-2016-2026, seleção anual defasada & 12,9\% & 10,6\% & 0,34 & -25,0\%\\
+2016-2026, overlay & 12,9\% & 10,5\% & 0,34 & -25,0\%\\
+2016-2026, ETFs financiados & 9,7\% & 10,6\% & 0,06 & -28,5\%\\
 \bottomrule
 \end{tabularx}
 
-O número é positivo, mas não é comparável diretamente ao Sharpe 0,47 de
-2005-2026. Ele responde a uma pergunta mais restrita: quanto resta quando o
-funil explícito só usa o passado, no período em que o requisito é possível.
+Os números não são comparáveis diretamente aos de 2005-2026. Eles respondem a
+uma pergunta mais restrita: quanto resta quando o funil explícito só usa o
+passado, no período em que o requisito é possível.
 
 \begin{callout}
 \textbf{Rótulo obrigatório: pseudo-point-in-time.} Os CSVs atuais foram
@@ -159,34 +192,40 @@ obter 0,455, comparando com a amostra completa, é uma checagem pós-hoc de
 consistência, não confirmação independente.
 
 \section*{3. Inferência estatística}
-\begin{tabularx}{\textwidth}{lrrr}
+\textbf{Overlay histórico:}\par\smallskip
+\begin{tabularx}{\textwidth}{Xrrr}
 \toprule
 Estimador & Lag & t & p bilateral\\
 \midrule
-Diário IID & 0 & 2,189 & 0,0286\\
-Diário Newey-West & 21 & 1,908 & 0,0564\\
-Diário Newey-West & 252 & 1,936 & 0,0529\\
-Mensal IID & 0 & 1,988 & 0,0468\\
-Mensal Newey-West & 24 & 1,913 & 0,0557\\
+Diário IID & 0 & 2,199 & 0,0279\\
+Diário Newey-West & 21 & 1,915 & 0,0555\\
+Diário Newey-West & 252 & 1,944 & 0,0519\\
+Mensal IID & 0 & 1,996 & 0,0459\\
+Mensal Newey-West & 24 & 1,921 & 0,0548\\
 \bottomrule
 \end{tabularx}
+
+Com os ETFs financiados, o Sharpe é 0,127, t IID 0,586 e p bilateral 0,558.
+Os t HAC diários ficam entre 0,515 e 0,578; o IC bootstrap de 95\% contém zero
+com folga em todos os blocos (por exemplo, [-0,369; 0,586] em 21 dias). Não há
+evidência estatística de retorno excedente nesse cenário.
 
 \newpage
 \section*{4. Múltiplos testes e incerteza}
 
-O p bilateral IID é 0,0286. Bonferroni para apenas quatro combinações dá
-\textbf{0,114}; no teste unilateral, 0,057. Quatro subestima o caminho total,
+O p bilateral IID é 0,0279. Bonferroni para apenas quatro combinações dá
+\textbf{0,112}; no teste unilateral, 0,056. Quatro subestima o caminho total,
 que inclui universos, estimadores, horizontes, janelas, alavancagem, expansão e
 mudanças de modelo. Portanto nem esse ajuste deve ser apresentado como
 conservador completo.
 
-\begin{tabularx}{\textwidth}{lrrr}
+\begin{tabularx}{\textwidth}{Xrrr}
 \toprule
 Bloco bootstrap & IC 2,5\% & Mediana & IC 97,5\%\\
 \midrule
-21 dias & -0,037 & 0,466 & 0,947\\
-63 dias & 0,025 & 0,470 & 0,960\\
-252 dias & 0,002 & 0,486 & 0,960\\
+21 dias & -0,037 & 0,467 & 0,950\\
+63 dias & 0,024 & 0,473 & 0,964\\
+252 dias & 0,004 & 0,489 & 0,960\\
 \bottomrule
 \end{tabularx}
 
@@ -196,28 +235,27 @@ reforça a leitura de evidência marginal. Um passo adicional adequado é White
 Reality Check/SPA ou Deflated Sharpe Ratio sobre o conjunto completo de
 estratégias realmente tentadas, cuja contagem precisa ser reconstruída do log.
 
-\section*{5. Robustez após as correções}
-\begin{tabularx}{\textwidth}{l X r}
+\section*{5. Robustez condicionada ao financiamento}
+\begin{tabularx}{\textwidth}{l X r r}
 \toprule
-Teste & Resultado auditado & Veredito\\
+Teste & Critério & Overlay & ETFs financiados\\
 \midrule
-Custos & 0,2\%/trade: CAGR 14,3\% & \ok{PASSA}\\
-Janela de vol & Sharpe mínimo 0,40 & \ok{PASSA}\\
-Subperíodos & supera CDI em 3 de 4 & \ok{PASSA}\\
-Alavancagem & teto 2x: CAGR 14,1\% & \ok{PASSA}\\
-Jackknife por classe & pior Sharpe 0,41, sem câmbio & \ok{PASSA}\\
-Horizonte & Sharpe positivo em 4 de 4 & \ok{PASSA}\\
+Custos & supera CDI a 0,2\%/trade & \ok{PASSA} & \critical{FALHA}\\
+Janela de vol & Sharpe mínimo 0,25 & \ok{PASSA} & \critical{FALHA}\\
+Subperíodos & supera CDI em 3 de 4 & \ok{PASSA} & \ok{PASSA}\\
+Alavancagem & teto 2x supera CDI & \ok{PASSA} & \ok{PASSA}\\
+Jackknife classe & Sharpe mínimo 0,25 & \ok{PASSA} & \critical{FALHA}\\
+Horizonte & positivo em 3 de 4 & \ok{PASSA} & \ok{PASSA}\\
 \bottomrule
 \end{tabularx}
 
-Isso permite dizer: \textit{o resultado não depende de uma única escolha entre
-as seis variações testadas}. Não permite dizer: \textit{o resultado está livre
-de erro de modelagem, seleção ou múltiplos testes}. O erro de carry original já
-havia passado por testes de robustez, mostrando por que robustez paramétrica e
-validade econômica são perguntas diferentes.
+O enunciado ``6 de 6'' vale apenas sob a contabilidade homogênea de overlay. No
+cenário financiado são \textbf{3 de 6}; o dobro do custo produz CAGR 10,2\%, a
+janela pior tem Sharpe 0,07 e retirar câmbio leva o Sharpe a 0,00. Robustez
+paramétrica não compensa erro econômico de instrumento.
 
 \section*{6. Controle de risco}
-O teto de 3x é atingido em \textbf{48,3\%} dos rebalanceamentos, não cerca de
+O teto de 3x é atingido em \textbf{48,6\%} dos rebalanceamentos, não cerca de
 23\%. Logo, ele é parte ativa do perfil de retorno e risco, embora o teste com
 2x continue superando o CDI. A volatilidade agregada de 10,5\% próxima ao alvo
 de 10\% não valida sozinha a previsão mensal de risco nem a matriz 40x40
@@ -230,11 +268,11 @@ estimada com apenas 60 dias.
 \toprule
 Afirmação sustentada & Afirmação que deve ser removida\\
 \midrule
-A estratégia tem retorno excedente positivo na amostra. & ``Sharpe 0,50 é
+A estratégia tem retorno excedente positivo no proxy de overlay. & ``Sharpe 0,48 é
 estatisticamente robusto.''\\
-Os seis critérios declarados sobrevivem ao motor auditado. & ``2005-2026 é todo
+Três critérios sobrevivem com ETFs financiados. & ``2005-2026 é todo
 fora da amostra.''\\
-O funil anual causal mantém Sharpe positivo em 2016-2026. & ``A previsão de
+O funil anual mantém Sharpe 0,06 no cenário financiado. & ``A previsão de
 diversificação foi confirmada.''\\
 TRY continua relevante após a correção de carry. & ``A queda da duração das
 tendências causou o bloco ruim.''\\
@@ -247,7 +285,8 @@ execução real de futuros.''\\
 \begin{enumerate}
 \item Usar uma única fonte oficial em código, gráficos, robustez e carteira.
 \item Fixar versões, retorno sem preenchimento e auditoria de lacunas.
-\item Manter timing causal e deriva de pesos entre rebalanceamentos.
+\item Manter timing causal, deriva testada e interrupção explícita na insolvência.
+\item Quantificar financiamento por tipo; não apresentar 0,48 como implementável.
 \item Rotular o funil completo como in-sample e reportar o teste anual 2016+.
 \item Reescrever significância e pré-registro com HAC e múltiplos testes.
 \item Reconstruir instrumentos: contratos e rolls de futuros; forwards de FX;
@@ -258,19 +297,21 @@ execução real de futuros.''\\
 \begin{itemize}
 \item \texttt{dados\_miyagi.py}: fonte única e regras de calendário.
 \item \texttt{auditoria\_dados.py}: lacunas, exposição sem retorno e tipos.
+\item \texttt{auditoria\_financiamento.py}: CDI e pernas financiadas.
+\item \texttt{auditoria\_lag\_carrego.py}: stress de 21 pregões no carry.
 \item \texttt{auditoria\_estatistica.py}: IID, HAC, Bonferroni e bootstrap.
 \item \texttt{auditoria\_selecao.py}: funil anual defasado.
 \item \texttt{robustez.py --universo 40}: seis testes no painel oficial.
-\item \texttt{tests/test\_backtest.py}: testes contra preenchimento implícito,
-sinal sem cotação e divergência de painel.
+\item \texttt{tests/test\_backtest.py}: calendário, preenchimento, sinal, deriva, giro,
+financiamento, insolvência e linhagem.
 \end{itemize}
 
 \begin{callout}
 \textbf{Conclusão final.} O projeto tem mérito por registrar erros e manter
 parâmetros mesmo quando alternativas parecem melhores. A contribuição mais
-forte para o desafio não é vender um Sharpe de 0,50 como fato; é mostrar uma
-pesquisa que encontrou onde o próprio número falhava, corrigiu o motor e
-preservou as limitações sem fabricar dados.
+forte para o desafio não é vender um Sharpe de 0,48 como fato implementável; é
+mostrar uma pesquisa que mediu que o cenário financiado cai a 0,13, preservou
+as limitações e não fabricou dados para recuperar desempenho.
 \end{callout}
 
 \vfill

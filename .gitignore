@@ -2,12 +2,17 @@
 .venv/
 __pycache__/
 *.pyc
+docs/*.aux
+docs/*.log
+docs/*.out
 
 # Resultados gerados pelo backtest (regeneráveis: rode backtest_miyagi.py)
 resultados/*.csv
 !resultados/auditoria_*.csv
 !resultados/carteira_atual.csv
 !resultados/contribuicao_por_ativo.csv
+# Registro informativo da máquina da execução; não é resultado econômico.
+resultados/auditoria_ambiente_local.csv
 
 # Sistema
 .DS_Store

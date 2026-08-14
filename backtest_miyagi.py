@@ -59,11 +59,14 @@ AQUI = Path(__file__).resolve().parent
 #
 # Cada parâmetro abaixo diz de onde veio.
 
-# Os 8 ativos, escolhidos por um funil de correlação (ver selecao_universo/).
+# Os 8 ativos do protótipo, escolhidos por um funil de correlação (ver
+# selecao_universo/). O resultado oficial atual usa o universo expandido
+# congelado em ``dados/universo_final.txt``; esta lista permanece como
+# referência reduzida e diagnóstico, não como universo final.
 # A lógica: quanto MENOS parecidos entre si, melhor. Oito apostas que sobem e
 # descem juntas valem quase o mesmo que uma aposta só; oito apostas
-# independentes valem oito. Estes 8 têm correlação média de 0,04 entre si,
-# o que equivale a ~6,1 apostas realmente independentes.
+# independentes valem oito. Os números históricos de correlação e apostas
+# efetivas pertencem ao registro do funil e não são premissas do motor.
 ATIVOS = [
     "^BVSP",      # Ações Brasil (Ibovespa)
     "SPY",        # Ações EUA (S&P 500)
@@ -110,15 +113,13 @@ JANELA_VOL_DIAS = 60      # fonte: convenção da literatura de trend following
 #
 # ESCOLHA OFICIAL: "janela".
 #
-# O motivo NÃO é que ela dá o melhor número. Ela dá (Sharpe 0,41 contra 0,38),
-# e escolher por isso seria exatamente o overfitting contra o qual este arquivo
-# adverte — o critério "testei os dois e fiquei com o que rendeu mais" invalida
-# qualquer backtest, independente de quão pequena seja a diferença.
+# O motivo NÃO é o desempenho observado. Escolher depois do backtest pelo maior
+# Sharpe seria exatamente o overfitting contra o qual este arquivo adverte.
 #
 # O motivo real, em duas partes:
-#   1. Os dois foram testados (comparar_estimadores.py) e a diferença é
-#      IMATERIAL: drawdown máximo -20,4% contra -20,3%. Não há ganho de
-#      qualidade em nenhuma das direções.
+#   1. Os dois foram comparados historicamente (comparar_estimadores.py) sem
+#      diferença material de drawdown naquela reconstrução. Os valores desse
+#      registro não são métricas oficiais do painel auditado atual.
 #   2. Quando duas opções são equivalentes no resultado, vence a mais simples
 #      de explicar e auditar. "Desvio-padrão dos últimos 60 dias" cabe numa
 #      frase; EWMA exige explicar decaimento exponencial e o parâmetro lambda.
@@ -218,8 +219,10 @@ def calcular_retornos(precos: pd.DataFrame) -> pd.DataFrame:
     pontos) quanto no ouro (que vale ~360 dólares).
 
     NOTA DE SIMPLIFICAÇÃO (declarada no relatório): usamos o retorno de cada
-    série na SUA moeda de origem, sem converter o resultado para reais. É o
-    padrão dos artigos de momentum com futuros.
+    série na SUA moeda de origem, sem converter o resultado para reais. Isso é
+    comum em estudos homogêneos de futuros, mas o painel atual também contém
+    ETFs e índices; portanto seus resultados são cenários de pesquisa, não uma
+    carteira implementável em reais.
     """
     # O argumento é deliberadamente explícito. O padrão antigo do pandas
     # preenchia NaN antes de calcular a variação, criando retornos de
@@ -240,9 +243,9 @@ def calcular_retornos(precos: pd.DataFrame) -> pd.DataFrame:
 #     Caiu   -> VENDIDO   (-1): aposto que continua caindo
 #
 # "Vendido" merece explicação: significa que você GANHA quando o preço CAI.
-# É isso que permite o robô ganhar dinheiro em crise — quando tudo desaba,
-# ele já está posicionado para a queda. Foi assim que o Miyagi fez +9,9% em
-# 2008, enquanto o Ibovespa caía 41%.
+# É isso que pode permitir ao robô ganhar dinheiro em crises — se o sinal já
+# estiver vendido antes da queda. O resultado concreto de cada crise deve ser
+# calculado no cenário auditado, não fixado como promessa neste comentário.
 #
 # Repare que o sinal é apenas +1 ou -1: não importa se subiu 5% ou 80%, a
 # aposta tem o mesmo tamanho. Isso é deliberado — é mais robusto do que tentar
@@ -422,8 +425,8 @@ def calcular_pesos_brutos(sinal: pd.Series, vol: pd.Series) -> pd.Series:
 #
 # Se a carteira está calma demais (5%), o fator é 2 e dobramos as posições.
 # Se está agitada (30%), o fator é 0,33 e cortamos para um terço.
-# É por isso que o drawdown máximo ficou em -14,5% enquanto o Ibovespa
-# chegou a -60%: quando o mercado enlouquece, o robô automaticamente encolhe.
+# A intenção é reduzir exposição quando o risco estimado sobe; o drawdown
+# realizado continua sendo resultado do backtest, não consequência garantida.
 
 def volatilidade_da_carteira(retornos: pd.DataFrame, pesos: pd.Series,
                              data: pd.Timestamp,
@@ -495,21 +498,91 @@ def aplicar_alvo_de_risco(pesos: pd.Series, vol_carteira: float) -> pd.Series:
 # Sem a regra (b), o backtest "compra" sabendo o resultado do dia — o que
 # produz uma curva linda e completamente falsa.
 #
-# SOBRE O CAIXA: esta é uma estratégia de futuros. Você não gasta o dinheiro
-# comprando os ativos; você deposita margem e o restante fica rendendo CDI.
-# Por isso o retorno total = CDI + resultado das posições - custos.
+# SOBRE O CAIXA: a representação pretendida é um overlay de futuros. Nesse caso
+# você deposita margem e o restante fica rendendo CDI, de modo que o retorno
+# total = CDI + resultado das posições - custos. O painel, porém, também inclui
+# ETFs de retorno total. Para eles, ``ativos_financiados`` desconta a taxa do
+# caixa da exposição líquida sob uma convenção simplificada e explicitamente
+# auditável; FX, borrow, margem e moeda-base ainda exigem dados adicionais.
 # (Esquecer o CDI foi um erro real da versão 1 deste projeto: sem ele, a
 #  estratégia "perdia" para o CDI por um artefato contábil, não por desempenho.)
+
+
+def derivar_pesos(
+    pesos_atuais: pd.Series,
+    retornos_do_dia: pd.Series,
+    retorno_total: float,
+    data: pd.Timestamp | None = None,
+) -> pd.Series:
+    """Atualiza pesos mantendo quantidades/notionais entre rebalanceamentos.
+
+    Para patrimônio inicial igual a 1, o notional do ativo ``i`` passa de
+    ``w_i`` para ``w_i * (1 + r_i)`` e o patrimônio passa para
+    ``1 + retorno_total``. Retorno ausente mantém o notional inalterado; ele
+    não é tratado como cotação observada e é registrado separadamente pelo
+    chamador.
+
+    Patrimônio nulo ou negativo encerra a simulação: depois de uma perda de
+    100% não existem pesos economicamente definidos. Continuar com o vetor
+    antigo produziria uma curva fictícia após a insolvência.
+    """
+    denominador = 1.0 + float(retorno_total)
+    if not np.isfinite(denominador) or denominador <= 0.0:
+        quando = f" em {pd.Timestamp(data).date()}" if data is not None else ""
+        raise RuntimeError(
+            "Patrimônio não positivo"
+            f"{quando}: retorno diário total={float(retorno_total):.6f}."
+        )
+
+    retornos_validos = retornos_do_dia.reindex(pesos_atuais.index).fillna(0.0)
+    return pesos_atuais * (1.0 + retornos_validos) / denominador
+
+
+def calcular_resultado_posicoes(
+    pesos: pd.Series,
+    retornos_do_dia: pd.Series,
+    taxa_caixa: float = 0.0,
+    ativos_financiados: set[str] | None = None,
+) -> tuple[float, float]:
+    """Calcula P&L arriscado e encargo das pernas financiadas.
+
+    Futuros e FX de retorno total são tratados como overlays: seu P&L é
+    somado ao rendimento do caixa. Já uma série de retorno total de ETF exige
+    capital. Sob a hipótese explícita de financiamento à taxa do caixa, sua
+    contribuição excedente é ``w * (r - taxa_caixa)``.
+
+    O encargo usa exposição *líquida assinada*. Uma posição vendida gera
+    crédito de caixa neste modelo simplificado; borrow, margem e haircuts
+    continuam fora do painel e devem ser reportados separadamente.
+    """
+    retornos_validos = retornos_do_dia.reindex(pesos.index).fillna(0.0)
+    bruto = float((pesos * retornos_validos).sum())
+    financiados = set(ativos_financiados or ())
+    desconhecidos = financiados - set(pesos.index)
+    if desconhecidos:
+        raise ValueError(
+            "Ativos financiados ausentes dos pesos: "
+            + ", ".join(sorted(desconhecidos))
+        )
+    exposicao_liquida = float(pesos[list(financiados)].sum()) if financiados else 0.0
+    encargo = float(taxa_caixa) * exposicao_liquida
+    return bruto - encargo, encargo
 
 def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
                    cdi: pd.Series, estimador: str | None = None,
                    universo_por_data: dict[pd.Timestamp, list[str]] | None = None,
-                   inicio: str | pd.Timestamp | None = None) -> dict:
+                   inicio: str | pd.Timestamp | None = None,
+                   ativos_financiados: set[str] | None = None) -> dict:
     """Roda a simulação completa e devolve as séries de resultado.
 
     ``universo_por_data`` é opcional e serve aos testes point-in-time. Cada
     lista passa a valer na sua data e continua válida até a próxima. O padrão
     mantém todas as colunas, reproduzindo a estratégia estática histórica.
+
+    ``ativos_financiados`` permite auditar séries de retorno total que não são
+    retornos excedentes de futuros. O padrão vazio preserva o estimando
+    histórico; passar os ETFs desconta deles a taxa do caixa sem alterar
+    silenciosamente a regra do sinal.
     """
 
     # Datas de rebalanceamento: último dia útil de cada mês, a partir de 2005.
@@ -527,11 +600,13 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
 
     retorno_diario = {}      # resultado líquido, dia a dia
     log_pesos = {}           # pesos em cada rebalanceamento (para auditoria)
+    log_pesos_pre_trade = {} # pesos derivados imediatamente antes da ordem
     log_giro = {}            # quanto foi negociado
     log_custo = {}           # quanto custou
     log_exposicao = {}       # exposição total (soma dos módulos dos pesos)
     log_pesos_diarios = {}   # exposição efetiva antes do retorno de cada dia
     log_faltantes = {}       # exposição cujo retorno diário estava ausente
+    log_financiamento = {}   # encargo líquido das séries financiadas
 
     for i, data in enumerate(datas_rebal):
         # ---- 1, 2 e 3: decidir a carteira -----------------------------
@@ -550,6 +625,7 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
         # "Giro" é o quanto mudou da carteira antiga para a nova. Se um peso
         # foi de 0,20 para 0,35, giramos 0,15 naquele ativo. Só pagamos pelo
         # que efetivamente mudou — manter posição não custa nada.
+        log_pesos_pre_trade[data] = pesos_atuais.copy()
         giro = (pesos - pesos_atuais).abs().sum()
         custo = giro * CUSTO_POR_TRADE
 
@@ -576,32 +652,43 @@ def rodar_backtest(precos: pd.DataFrame, retornos: pd.DataFrame,
             log_faltantes[dia] = float(pesos_atuais[faltantes].abs().sum())
 
             # Resultado das posições: peso × retorno de cada ativo, somado.
-            # (fillna(0) trata feriado de um mercado específico como "não
-            #  aconteceu nada nele naquele dia", que é o correto.)
+            # Em fechamento normal do mercado, retorno zero é a convenção
+            # econômica usual. O mesmo fill também alcança lacunas longas, nas
+            # quais zero é apenas hipótese de diagnóstico; por isso a exposição
+            # afetada foi registrada acima e não é chamada de cotação observada.
             retornos_validos = retornos_do_dia.fillna(0.0)
-            resultado_posicoes = float((pesos_atuais * retornos_validos).sum())
-
             # Retorno total = CDI (dinheiro parado rendendo) + posições
             juros_do_dia = float(cdi.get(dia, 0.0))
+            resultado_posicoes, encargo_financiamento = calcular_resultado_posicoes(
+                pesos_atuais,
+                retornos_validos,
+                taxa_caixa=juros_do_dia,
+                ativos_financiados=ativos_financiados,
+            )
+            log_financiamento[dia] = encargo_financiamento
             total_dia = resultado_posicoes + juros_do_dia
             retorno_diario[dia] = retorno_diario.get(dia, 0.0) + total_dia
 
             # Mantemos quantidades/notionais entre rebalanceamentos. Após a
             # oscilação do ativo e do patrimônio, os pesos efetivos mudam.
-            denominador = 1.0 + total_dia
-            if denominador > 0:
-                pesos_atuais = pesos_atuais * (1.0 + retornos_validos) / denominador
+            pesos_atuais = derivar_pesos(
+                pesos_atuais, retornos_do_dia, total_dia, data=dia
+            )
 
     serie = pd.Series(retorno_diario).sort_index()
 
     return {
         "retornos": serie,
         "pesos": pd.DataFrame(log_pesos).T.sort_index(),
+        "pesos_antes_rebalanceamento": pd.DataFrame(
+            log_pesos_pre_trade
+        ).T.sort_index(),
         "giro": pd.Series(log_giro).sort_index(),
         "custos": pd.Series(log_custo).sort_index(),
         "exposicao": pd.Series(log_exposicao).sort_index(),
         "pesos_diarios": pd.DataFrame(log_pesos_diarios).T.sort_index(),
         "exposicao_retorno_ausente": pd.Series(log_faltantes).sort_index(),
+        "encargo_financiamento": pd.Series(log_financiamento).sort_index(),
     }
 
 

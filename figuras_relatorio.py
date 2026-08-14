@@ -31,7 +31,7 @@ from backtest_miyagi import (DIAS_UTEIS_ANO, calcular_metricas,
 from backtest_expandido import carregar_expandido
 from funil_expandido import (CORTE_CLUSTER, correlacao_pareada, elegiveis,
                              retornos_mensais)
-from dados_miyagi import carregar_pool_oficial
+from dados_miyagi import carregar_pool_oficial, selecionar_etfs
 
 AQUI = Path(__file__).resolve().parent
 SAIDA = AQUI / "resultados"
@@ -109,7 +109,7 @@ def fig_matriz(corr: pd.DataFrame, universo: list[str]):
 
 
 def fig_patrimonio(r40, r8, ibov, cdi):
-    """Curva de patrimônio: 40 ativos vs 8 vs Ibovespa vs CDI."""
+    """Curva do stress financiado: 40 ativos vs 8 vs referências."""
     fig, ax = plt.subplots(figsize=(12, 5.5))
     for inicio, fim, rot in [("2008-01-01", "2009-03-31", "crise 2008"),
                              ("2020-02-01", "2020-06-30", "COVID"),
@@ -118,8 +118,8 @@ def fig_patrimonio(r40, r8, ibov, cdi):
         ax.text(pd.Timestamp(inicio), 0.02, f" {rot}", transform=ax.get_xaxis_transform(),
                 fontsize=7.5, color="#555", va="bottom")
 
-    for serie, cor, lw, rot in [((1 + r40).cumprod(), NAVY, 2.1, "MIYAGI · 40 ativos"),
-                                ((1 + r8).cumprod(), "#5B8CA8", 1.5, "MIYAGI · 8 ativos"),
+    for serie, cor, lw, rot in [((1 + r40).cumprod(), NAVY, 2.1, "MIYAGI · 40 (stress ETFs)"),
+                                ((1 + r8).cumprod(), "#5B8CA8", 1.5, "MIYAGI · 8 (stress ETFs)"),
                                 ((1 + ibov).cumprod(), CINZA, 1.3, "Ibovespa"),
                                 ((1 + cdi).cumprod(), VERM, 1.3, "CDI")]:
         ax.plot(serie.index, serie, color=cor, lw=lw, label=rot,
@@ -127,7 +127,8 @@ def fig_patrimonio(r40, r8, ibov, cdi):
 
     ax.set_yscale("log")
     ax.set_ylabel("patrimônio (escala log, base 1)")
-    ax.set_title("Patrimônio acumulado — o efeito de expandir o universo",
+    ax.set_title("Patrimônio acumulado — ETFs financiados a CDI\n"
+                 "Stress contábil; retornos ainda nas moedas de origem",
                  fontsize=12, fontweight="bold", color=NAVY, loc="left")
     ax.legend(frameon=False, loc="upper left", fontsize=9)
     ax.grid(alpha=0.22, lw=0.6)
@@ -150,7 +151,7 @@ def fig_por_ativo(contrib: pd.Series):
     ax.set_yticklabels(c.index, fontsize=8.5)
     ax.axvline(0, color="#333", lw=0.9)
     ax.set_xlabel("contribuição anualizada para o retorno (%)")
-    ax.set_title("Desempenho por ativo — quem realmente pagou a conta\n"
+    ax.set_title("Contribuição por ativo líquida do funding dos ETFs\n"
                  f"{(c > 0).sum()} de {len(c)} ativos contribuíram positivamente",
                  fontsize=12, fontweight="bold", color=NAVY, loc="left")
     ax.grid(axis="x", alpha=0.22, lw=0.6)
@@ -162,22 +163,27 @@ def fig_por_ativo(contrib: pd.Series):
     print("  desempenho_por_ativo.png")
 
 
-def extrair_ordens(pesos: pd.DataFrame) -> pd.DataFrame:
-    """Toda ordem de compra e venda gerada pelo robô.
+def extrair_ordens(
+    pesos_alvo: pd.DataFrame,
+    pesos_antes_rebalanceamento: pd.DataFrame,
+) -> pd.DataFrame:
+    """Toda ordem efetiva entre o peso derivado e o novo alvo.
 
-    Uma ORDEM é uma mudança de peso entre dois rebalanceamentos. Se o peso de um
-    ativo vai de +0,20 para +0,35, houve uma compra de 0,15. Se vai de +0,20
-    para −0,10, houve uma venda de 0,30 (zerou a compra e ficou vendido).
+    Se o peso pré-trade derivado é +0,20 e o novo alvo é +0,35, houve compra de
+    0,15. Comparar dois alvos mensais ignoraria a deriva entre eles e poderia
+    publicar uma ordem diferente da usada para calcular giro e custo.
     """
-    delta = pesos.diff()
-    delta.iloc[0] = pesos.iloc[0]          # a primeira carteira é toda compra
+    pre_trade = pesos_antes_rebalanceamento.reindex(
+        index=pesos_alvo.index, columns=pesos_alvo.columns
+    ).fillna(0.0)
+    delta = pesos_alvo - pre_trade
 
     linhas = []
     for data, row in delta.iterrows():
         for ativo, mudanca in row.items():
             if abs(mudanca) < 1e-6:
                 continue
-            peso_novo = pesos.loc[data, ativo]
+            peso_novo = pesos_alvo.loc[data, ativo]
             linhas.append({
                 "data": data.date(),
                 "ativo": ativo,
@@ -204,7 +210,10 @@ def main() -> None:
     fig_matriz(corr, [a for a in universo if a in corr.index])
 
     print("[3/5] rodando o backtest de 40 ativos")
-    res = rodar_backtest(precos, retornos, cdi)
+    etfs = selecionar_etfs(universo)
+    res = rodar_backtest(
+        precos, retornos, cdi, ativos_financiados=etfs
+    )
     r40 = res["retornos"]
 
     # --- referências ---
@@ -212,7 +221,10 @@ def main() -> None:
     ibov = calcular_retornos(ibov)["^BVSP"].reindex(r40.index).fillna(0.0)
     cdi_al = cdi.reindex(r40.index).fillna(0.0)
     p8, cdi8 = carregar_dados()
-    r8 = rodar_backtest(p8, calcular_retornos(p8), cdi8)["retornos"]
+    etfs8 = selecionar_etfs(list(p8.columns))
+    r8 = rodar_backtest(
+        p8, calcular_retornos(p8), cdi8, ativos_financiados=etfs8
+    )["retornos"]
     r8 = r8.reindex(r40.index).fillna(0.0)
 
     print("[4/5] figuras de resultado")
@@ -220,11 +232,27 @@ def main() -> None:
 
     pesos_diarios = res["pesos_diarios"].reindex(r40.index).fillna(0.0)
     anos = (r40.index[-1] - r40.index[0]).days / 365.25
-    contrib = (pesos_diarios * retornos.reindex(r40.index)[universo].fillna(0.0)).sum() / anos
+    contribuicoes = pesos_diarios * retornos.reindex(r40.index)[universo].fillna(0.0)
+    contribuicoes.loc[:, sorted(etfs)] = contribuicoes[sorted(etfs)].sub(
+        pesos_diarios[sorted(etfs)].mul(cdi_al, axis=0)
+    )
+    contrib = contribuicoes.sum() / anos
     fig_por_ativo(contrib)
 
     print("[5/5] extraindo ordens")
-    ordens = extrair_ordens(res["pesos"])
+    giro_reconstruido = (
+        res["pesos"] - res["pesos_antes_rebalanceamento"]
+    ).abs().sum(axis=1)
+    if not np.allclose(
+        giro_reconstruido.to_numpy(), res["giro"].to_numpy(),
+        rtol=0.0, atol=1e-12,
+    ):
+        raise RuntimeError(
+            "Ordens publicadas não reconciliam com o giro cobrado pelo motor."
+        )
+    ordens = extrair_ordens(
+        res["pesos"], res["pesos_antes_rebalanceamento"]
+    )
     ordens.to_csv(SAIDA / "ordens_completas.csv", index=False)
 
     # --- sumários que cabem num relatório --------------------------------

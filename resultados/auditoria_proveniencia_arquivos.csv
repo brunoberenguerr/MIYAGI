@@ -1,4 +1,4 @@
-arquivo,bytes,sha256
+arquivo,bytes_canonicos_lf,sha256_canonico_lf
 dados/pool_carrego.csv,12208353,ef01427f00ecb4fc358438a54ab3feeb71f0c918bd8c2a390b50fde4d8b849c8
 dados/pool_expandido.csv,12250368,5e939c7733b8194df67d605cd49ad28623f80eaddf244fa8989d00aaa22b1a66
 dados/cdi.csv,118257,37023ecc19836715ec7f91ab0f5586baff3000a53e453a66abf5242e6976b112

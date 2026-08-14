@@ -3,8 +3,14 @@
 MIYAGI — backtest com o universo expandido (40 ativos)
 =======================================================
 
-A PREVISÃO A BATER
+REGISTRO HISTÓRICO
 ------------------
+Este script preserva o teste da previsão original sob a convenção de overlay.
+Ele não é o resultado econômico atual. Para os cenários auditados de carry e
+financiamento, use ``resultado_final.py`` e ``auditoria_financiamento.py``.
+
+A PREVISÃO HISTÓRICA
+---------------------
 Registrada em `funil_expandido.py` e commitada ANTES deste backtest existir:
 
     universo atual ....  8 ativos |  7,0 apostas efetivas | Sharpe 0,51
@@ -56,15 +62,17 @@ def carregar_expandido():
     O nome histórico da função foi preservado para não quebrar scripts antigos,
     mas ela não acessa mais ``pool_expandido.csv``. Isso elimina a bifurcação em
     que robustez e figuras usavam câmbio spot enquanto o resultado final usava
-    o painel corrigido por carrego.
+    o painel com proxy de carry.
     """
     return carregar_dados_oficiais()
 
 
 def main() -> None:
     print("=" * 82)
-    print("MIYAGI — BACKTEST COM UNIVERSO EXPANDIDO")
+    print("MIYAGI — DIAGNÓSTICO HISTÓRICO DO OVERLAY EXPANDIDO")
     print("=" * 82)
+    print("ATENÇÃO: este script não cobra o financiamento dos ETFs e não")
+    print("representa retorno implementável. Use resultado_final.py para a auditoria.")
     print(f"  Previsão registrada antes deste backtest: Sharpe {PREVISTO:.2f}")
     print(f"  (= {SHARPE_ATUAL:.2f} × raiz({N_EFF_NOVO}/{N_EFF_ATUAL}))")
 
@@ -89,6 +97,10 @@ def main() -> None:
     r_wf, escolhas = walk_forward(series, cdi)
     m_wf = calcular_metricas(r_wf, cdi)
 
+    p8, cdi8 = bt.carregar_dados()
+    r8 = rodar_backtest(p8, calcular_retornos(p8), cdi8)["retornos"]
+    m8 = calcular_metricas(r8, cdi8)
+
     # ================================================================ saída
     print("\n" + "=" * 82)
     print("RESULTADO")
@@ -103,11 +115,8 @@ def main() -> None:
               f"{m['sharpe']:>9.2f}{t:>7.2f}{m['max_drawdown']:>9.1%}")
         return t
 
-    print("  universo de 8 ativos (referência)")
-    print(f"  {'  base 12-1':<34}{0.150:>8.1%}{0.110:>8.1%}{0.41:>9.2f}"
-          f"{1.88:>7.2f}{-0.204:>9.1%}")
-    print(f"  {'  walk-forward':<34}{0.163:>8.1%}{0.110:>8.1%}{0.51:>9.2f}"
-          f"{2.36:>7.2f}{-0.201:>9.1%}")
+    print("  universo de 8 ativos (overlay atual, referência)")
+    linha("  base 12-1", m8, r8)
     print("\n  universo de 40 ativos (novo)")
     linha("  base 12-1", m_base, r_base)
     t_wf = linha("  walk-forward", m_wf, r_wf)
@@ -165,9 +174,12 @@ def main() -> None:
     print("\n" + "=" * 82)
     print("SUB-PERÍODOS — a fraqueza pós-2016 melhorou?")
     print("=" * 82)
-    print(f"  {'período':<16}{'8 ativos (WF)':>18}{'40 ativos (WF)':>18}{'CDI':>9}")
+    print(f"  {'período':<16}{'8 WF (registro)':>18}{'40 ativos (WF)':>18}{'CDI':>9}")
     print("  " + "-" * 62)
-    ref_8 = {"2005-2010": 0.32, "2011-2015": 1.40, "2016-2020": -0.04, "2021-2026": 0.03}
+    # Valores preservados do registro histórico; não são recalculados sobre o
+    # painel atual e por isso o cabeçalho os distingue do diagnóstico corrente.
+    ref_8 = {"2005-2010": 0.32, "2011-2015": 1.40,
+             "2016-2020": -0.04, "2021-2026": 0.03}
     for rot, (ini, fim) in {"2005-2010": ("2005", "2010"),
                             "2011-2015": ("2011", "2015"),
                             "2016-2020": ("2016", "2020"),

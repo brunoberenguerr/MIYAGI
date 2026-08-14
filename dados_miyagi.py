@@ -3,7 +3,8 @@
 
 Este módulo existe para impedir que scripts diferentes rodem, sem perceber,
 versões econômicas diferentes do mesmo painel. O painel oficial é o que contém
-a correção de carrego cambial já produzida pelo projeto.
+o proxy de carrego cambial já produzido pelo projeto; ele não substitui forwards
+nem séries vintage de taxas.
 
 Nenhuma lacuna é preenchida sem limite. Buracos de até ``MAX_FFILL_DIAS``
 podem representar calendários de negociação distintos e recebem o último
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 AQUI = Path(__file__).resolve().parent
@@ -23,6 +25,23 @@ CDI_OFICIAL = AQUI / "dados" / "cdi.csv"
 MAX_FFILL_DIAS = 5
 
 
+def eh_etf_adjusted_close(ativo: str) -> bool:
+    """Identifica os tickers baixados como ETFs com ``auto_adjust=True``.
+
+    As outras famílias têm marcadores explícitos no Yahoo: futuros ``=F``, FX
+    ``=X`` e índices ``^``. Centralizar a regra impede que scripts de resultado
+    e auditoria discordem sobre quais pernas exigem financiamento.
+    """
+    return not (
+        ativo.endswith("=F") or ativo.endswith("=X") or ativo.startswith("^")
+    )
+
+
+def selecionar_etfs(ativos: list[str] | pd.Index) -> set[str]:
+    """Devolve a família financiada de ETFs para uma lista de instrumentos."""
+    return {ativo for ativo in ativos if eh_etf_adjusted_close(str(ativo))}
+
+
 def carregar_cdi() -> pd.Series:
     """Carrega o CDI diário em fração decimal."""
     cdi = pd.read_csv(CDI_OFICIAL, index_col=0, parse_dates=True)
@@ -30,7 +49,7 @@ def carregar_cdi() -> pd.Series:
 
 
 def carregar_pool_oficial() -> pd.DataFrame:
-    """Carrega o painel com carrego corrigido, sem alterar seus dados brutos."""
+    """Carrega o painel com proxy de carry, sem alterar seus dados brutos."""
     return pd.read_csv(PAINEL_OFICIAL, index_col=0, parse_dates=True).sort_index()
 
 
@@ -49,12 +68,48 @@ def alinhar_ao_calendario(
     calendario: pd.DatetimeIndex,
     limite: int = MAX_FFILL_DIAS,
 ) -> pd.DataFrame:
-    """Alinha preços ao calendário do CDI com preenchimento curto e explícito."""
-    return precos.ffill(limit=limite).reindex(calendario).ffill(limit=limite)
+    """Alinha ao CDI sem renovar artificialmente a idade de uma cotação.
+
+    O limite conta datas do calendário oficial posteriores à última cotação
+    *observada*. Uma implementação em duas chamadas de ``ffill(limit=...)``
+    permitiria que valores já imputados fossem preenchidos outra vez, dobrando
+    silenciosamente o horizonte máximo. A união dos índices preserva uma
+    observação legítima em um dia fora do CDI (por exemplo, FX no domingo), mas
+    ela nunca é confundida com uma nova observação durante o preenchimento.
+    """
+    if limite < 0:
+        raise ValueError("limite de preenchimento deve ser não negativo")
+
+    calendario = pd.DatetimeIndex(calendario).sort_values().unique()
+    uniao = precos.index.union(calendario).sort_values()
+    saida = pd.DataFrame(index=calendario, columns=precos.columns, dtype=float)
+    datas_calendario = calendario.to_numpy()
+    posicoes_atuais = np.arange(len(calendario))
+
+    for ativo in precos.columns:
+        serie = precos[ativo].reindex(uniao)
+        observado = serie.notna()
+        ultima_observacao = pd.Series(pd.NaT, index=uniao, dtype="datetime64[ns]")
+        ultima_observacao.loc[observado] = uniao[observado]
+        ultima_observacao = ultima_observacao.ffill().reindex(calendario)
+
+        valores = serie.ffill().reindex(calendario)
+        tem_observacao = ultima_observacao.notna().to_numpy()
+        insercao = np.zeros(len(calendario), dtype=int)
+        insercao[tem_observacao] = np.searchsorted(
+            datas_calendario,
+            ultima_observacao.to_numpy()[tem_observacao],
+            side="right",
+        )
+        idade_no_calendario = posicoes_atuais - insercao + 1
+        dentro_do_limite = tem_observacao & (idade_no_calendario <= limite)
+        saida[ativo] = valores.where(dentro_do_limite)
+
+    return saida
 
 
 def carregar_dados_oficiais() -> tuple[pd.DataFrame, pd.Series, list[str]]:
-    """Devolve preços, CDI e universo usados por todo resultado oficial."""
+    """Devolve preços, CDI e universo usados pelos cenários auditados."""
     pool = carregar_pool_oficial()
     cdi = carregar_cdi()
     universo = carregar_universo_oficial()
@@ -64,11 +119,13 @@ def carregar_dados_oficiais() -> tuple[pd.DataFrame, pd.Series, list[str]]:
 
 
 def auditar_lacunas(precos: pd.DataFrame, limite: int = MAX_FFILL_DIAS) -> pd.DataFrame:
-    """Lista lacunas internas maiores que o limite, sem fabricar observações.
+    """Lista sequências internas de NaN maiores que ``limite``.
 
     Lacunas antes da primeira ou depois da última observação não entram: são
     simplesmente períodos em que o instrumento ainda não existia ou deixou de
-    estar disponível. O relatório trata apenas buracos dentro de sua cobertura.
+    estar disponível. Quando recebe o painel já alinhado e ``limite=0``, a
+    função reporta cada lacuna que restou depois do preenchimento permitido,
+    em datas do calendário oficial do CDI.
     """
     linhas: list[dict] = []
     for ativo in precos.columns:

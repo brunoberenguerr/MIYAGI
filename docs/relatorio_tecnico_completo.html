@@ -78,7 +78,7 @@
 <header>
   <h1>MIYAGI — Relatório técnico completo</h1>
   <p class="sub">Robô de tendência multi-ativo com alvo de risco · Desafio Quant AI 2026</p>
-  <p class="meta">13 de agosto de 2026 · 3 dias para a entrega · documento interno da equipe
+  <p class="meta">14 de agosto de 2026 · documento interno da equipe
      · repositório: <code>github.com/brunoberenguerr/MIYAGI</code></p>
 </header>
 
@@ -93,25 +93,28 @@ primeiro lugar.</p>
 
 <div class="grid">
   <div class="card"><div class="l">Universo</div><div class="k">40</div><div class="d">de 114 candidatos</div></div>
-  <div class="card"><div class="l">CAGR</div><div class="k">15,6%</div><div class="d">CDI: 10,7%</div></div>
-  <div class="card"><div class="l">Sharpe</div><div class="k">0,47</div><div class="d">t ingênuo = 2,19</div></div>
-  <div class="card"><div class="l">Max DD</div><div class="k">−24,1%</div><div class="d">Ibovespa: −60%</div></div>
+  <div class="card"><div class="l">CAGR</div><div class="k">11,5%</div><div class="d">CDI: 10,7%</div></div>
+  <div class="card"><div class="l">Sharpe</div><div class="k">0,13</div><div class="d">t ingênuo = 0,59</div></div>
+  <div class="card"><div class="l">Max DD</div><div class="k">−25,8%</div><div class="d">Ibovespa: −60%</div></div>
 </div>
 
-<p><small class="note">Números <strong>com o carrego cambial corrigido</strong>
-(ver seção 8). A versão sem essa correção dava Sharpe 0,60 e está superada.</small></p>
+<p><small class="note">Números com proxy de carry cambial e os 11 ETFs de
+<code>Adjusted Close</code> financiados a CDI. Como os retornos permanecem nas
+moedas de origem, o 0,13 é um stress contábil reproduzível, não retorno
+implementável em reais. O overlay homogêneo dá Sharpe 0,48 e permanece apenas
+como estimando histórico de pesquisa.</small></p>
 
 <h3>As cinco conclusões que definem o trabalho</h3>
 <ol>
-  <li><strong>A estratégia tem resultado positivo</strong>, com Sharpe de 0,47;
-  a evidência é marginal (t HAC entre 1,91 e 1,99).</li>
+  <li><strong>O cenário financiado tem Sharpe 0,13</strong>, t IID 0,59 e não
+  apresenta evidência estatística de retorno excedente.</li>
   <li><strong>Ela parou de bater o CDI entre 2016 e 2020</strong>. A duração
   estimada das tendências também caiu, mas essa associação não prova causa.</li>
-  <li><strong>Expandir o universo de 8 para 40 ativos ajudou de verdade</strong>
-  (Sharpe 0,36 → 0,47 na estimativa auditada) e passou a robustez de 4/6 para 6/6.</li>
-  <li><strong>Encontramos e corrigimos um erro que inflava o resultado:</strong> o
-  backtest ignorava os juros no câmbio. A lira turca parecia render +18% ao ano;
-  com o carrego correto, rende −1,6%.</li>
+  <li><strong>Os “6 de 6” pertencem somente ao overlay homogêneo.</strong> Com os
+  ETFs financiados, apenas 3 de 6 critérios de robustez passam.</li>
+  <li><strong>Foram medidos dois erros econômicos de grande impacto:</strong> o
+  carry cambial ausente e a dupla contagem de CDI nos ETFs. O segundo reduz o
+  Sharpe de 0,48 para 0,13.</li>
   <li><strong>Duas estratégias foram descartadas com rigor no caminho</strong>
   (MARÉ e o walk-forward no universo grande) — e isso vale mais que um número
   bonito.</li>
@@ -128,7 +131,8 @@ primeiro lugar.</p>
   <p><strong>Limite de validade.</strong> O funil histórico usou correlações e
   elegibilidade até 2026. Portanto 2005–2026 não é integralmente fora da
   amostra. A seleção anual defasada só pode começar em 2016 e produz Sharpe
-  0,34; os dados públicos ainda não têm vintages arquivados.</p>
+  0,34 no overlay e 0,06 com ETFs financiados; os dados públicos ainda não têm
+  vintages arquivados.</p>
 </div>
 
 <div class="callout bad">
@@ -150,9 +154,12 @@ primeiro lugar.</p>
   <tr><td>MIYAGI v2</td><td>horizonte adaptativo (walk-forward)</td><td>Sharpe 0,51</td></tr>
   <tr><td>MIYAGI v3</td><td>universo expandido, 40 ativos, 12-1 fixo</td>
       <td>Sharpe 0,60 <small class="note">(inflado)</small></td></tr>
-  <tr class="hl"><td><strong>MIYAGI v4</strong></td>
-      <td><strong>v3 com o carrego cambial corrigido</strong></td>
-      <td><strong>Sharpe 0,47 (auditado)</strong></td></tr>
+  <tr><td><strong>MIYAGI v4</strong></td>
+      <td><strong>v3 com proxy de carry cambial</strong></td>
+      <td><strong>Sharpe 0,48 (overlay)</strong></td></tr>
+  <tr class="hl"><td><strong>MIYAGI v5</strong></td>
+      <td><strong>v4 com stress de financiamento dos ETFs</strong></td>
+      <td><strong>Sharpe 0,13 (auditado; não implementável)</strong></td></tr>
 </table>
 
 <h3>Por que o MARÉ foi descartado</h3>
@@ -194,8 +201,9 @@ Pedersen 2012; Hurst, Ooi &amp; Pedersen 2017).</p>
       <td>rebalanceamento mensal no fechamento; custo de 0,1% sobre o negociado</td>
       <td>premissa declarada</td></tr>
   <tr><td><strong>Caixa</strong></td>
-      <td>rende CDI (estratégia de futuros: posta-se margem, o resto rende)</td>
-      <td>—</td></tr>
+      <td>rende CDI no patrimônio; o stress cobra CDI da exposição líquida nos
+          ETFs de retorno total</td>
+      <td>convenção simplificada</td></tr>
 </table>
 
 <p><strong>Por que ignorar o último mês?</strong> No curtíssimo prazo os preços
@@ -274,7 +282,7 @@ transformar candidatos correlacionados em apostas genuinamente distintas.</p>
 </div>
 
 <figure>
-  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/dendrograma.png" alt="Dendrograma">
+  <img src="../resultados/dendrograma.png" alt="Dendrograma">
   <figcaption><strong>A árvore das apostas independentes.</strong> 101 candidatos
   elegíveis. Cada cor é um cluster; abaixo da linha vermelha os ativos andam
   juntos demais para valerem como apostas separadas. Repare no bloco roxo à
@@ -301,7 +309,7 @@ sobreviveram</strong> — foram absorvidos por clusters cujo medoide é outro at
 A exposição a Brasil permanece via BRL=X.</small></p>
 
 <figure>
-  <img src="file:///C:/Users/bruno/Downloads/Meca%20quant/Git%20mecaquant/MIYAGI/resultados/matriz_correlacao_40.png" alt="Matriz de correlação">
+  <img src="../resultados/matriz_correlacao_40.png" alt="Matriz de correlação">
   <figcaption><strong>Matriz de correlação dos 40 selecionados</strong>, ordenada
   pelo clustering. ρ médio de 0,065 → 11,3 apostas efetivas. Os blocos vermelhos
   residuais mostram onde ainda há dependência (os grãos entre si, os câmbios
@@ -313,19 +321,23 @@ A exposição a Brasil permanece via BRL=X.</small></p>
 <h3>Como reproduzir</h3>
 <pre>git clone https://github.com/brunoberenguerr/MIYAGI.git &amp;&amp; cd MIYAGI
 python -m venv .venv &amp;&amp; .venv\Scripts\activate
-pip install pandas numpy matplotlib scipy yfinance requests
+pip install -r requirements.txt
 
-<span class="c"># pipeline principal, nesta ordem</span>
-python expandir_pool.py       <span class="c"># baixa os 114 candidatos do Yahoo</span>
-python carrego.py             <span class="c"># corrige o carrego cambial (juros do FRED)</span>
-python funil_expandido.py     <span class="c"># funil de correlacao -> 40 ativos</span>
-python resultado_final.py     <span class="c"># RESULTADO OFICIAL</span>
+<span class="c"># pipeline reproduzível: usa os CSVs congelados no repositório</span>
+python resultado_final.py     <span class="c"># OVERLAY E STRESS FINANCIADO</span>
 
 <span class="c"># diagnosticos</span>
 python robustez.py --universo 40
-python analise_periodos.py
-python treino_parametros.py
-python figuras_relatorio.py   <span class="c"># dendrograma, matriz, ordens</span></pre>
+python robustez.py --universo 40 --financiamento etfs
+python auditoria_financiamento.py
+python auditoria_lag_carrego.py
+python analise_periodos.py --financiamento etfs
+python treino_parametros.py --financiamento etfs
+python figuras_relatorio.py   <span class="c"># dendrograma, matriz, ordens</span>
+
+<span class="c"># reconstrução opcional: baixa dados atuais, sem vintages</span>
+python expandir_pool.py
+python carrego.py</pre>
 
 <h3>A lógica, em pseudocódigo</h3>
 <p>O motor "rebobina a fita" de 2005 a 2026, mês a mês, <strong>fingindo não
@@ -345,7 +357,7 @@ peso  = peso_bruto × min(fator, 3x / exposicao)
 <span class="c"># 4. o custo — 0,1% sobre o que mudou desde o mês passado</span>
 custo = |peso_novo - peso_antigo|.soma() × 0,1%
 
-<span class="c"># 5. carrega as posições pelo mês seguinte, somando CDI ao caixa</span></pre>
+<span class="c"># 5. carrega as posições; soma CDI uma vez e cobra funding dos ETFs</span></pre>
 
 <h3>As três defesas contra look-ahead</h3>
 <ol>
@@ -371,24 +383,27 @@ custo = |peso_novo - peso_antigo|.soma() × 0,1%
 <table>
   <tr><th></th><th class="num">CAGR</th><th class="num">Vol</th><th class="num">Sharpe*</th>
       <th class="num">t</th><th class="num">Max DD</th></tr>
-  <tr class="hl"><td><strong>MIYAGI · 40 ativos</strong></td><td class="num">15,6%</td>
-      <td class="num">10,5%</td><td class="num">0,47</td><td class="num">2,19</td><td class="num">−24,1%</td></tr>
-  <tr><td>MIYAGI · 8 ativos</td><td class="num">14,4%</td><td class="num">11,0%</td>
-      <td class="num">0,36</td><td class="num">1,64</td><td class="num">−20,4%</td></tr>
+  <tr><td>40 ativos · overlay histórico</td><td class="num">15,7%</td>
+      <td class="num">10,5%</td><td class="num">0,48</td><td class="num">2,20</td><td class="num">−24,0%</td></tr>
+  <tr class="hl"><td><strong>40 ativos · ETFs financiados</strong></td><td class="num">11,5%</td>
+      <td class="num">10,5%</td><td class="num">0,13</td><td class="num">0,59</td><td class="num">−25,8%</td></tr>
+  <tr><td>8 ativos · ETFs financiados</td><td class="num">9,7%</td><td class="num">10,8%</td>
+      <td class="num">−0,03</td><td class="num">−0,13</td><td class="num">−25,8%</td></tr>
   <tr><td>Ibovespa</td><td class="num">9,7%</td><td class="num">25,7%</td>
       <td class="num">0,09</td><td class="num">—</td><td class="num">−60,0%</td></tr>
   <tr><td>CDI</td><td class="num">10,7%</td><td class="num">0,2%</td>
       <td class="num">—</td><td class="num">—</td><td class="num">0,0%</td></tr>
 </table>
-<p><small class="note">* Sharpe do excesso sobre o CDI, <strong>com o carrego
-cambial corrigido nos dois universos</strong>. Período 2005–2026 (21,5 anos),
+<p><small class="note">* Sharpe do excesso sobre o CDI. Período 2005–2026 (21,5 anos),
 259 rebalanceamentos, exposição média 2,5×, volatilidade realizada de 10,5%
 contra alvo de 10%.</small></p>
 
 <div class="callout warn">
-  <p><strong>A evidência estatística é marginal.</strong> O t ingênuo é 2,19,
-  mas Newey–West fica entre 1,91 e 1,99. Com Bonferroni para apenas quatro testes,
-  o p bilateral é 0,114. Não se afirma significância robusta.</p>
+  <p><strong>Não há evidência estatística no cenário financiado.</strong> O t IID
+  é 0,59, p bilateral 0,558 e os t Newey–West ficam entre 0,51 e 0,58. Todos os
+  intervalos bootstrap incluem zero com folga. Isso não torna o stress uma
+  carteira em reais: FX, roll, dividendos ausentes e custos por instrumento
+  continuam fora do painel.</p>
 </div>
 
 <figure>
@@ -401,9 +416,9 @@ contra alvo de 10%.</small></p>
 
 <figure>
   <img src="../resultados/desempenho_por_ativo.png" alt="Desempenho por ativo">
-  <figcaption>Contribuição anualizada de cada ativo. 29 de 40 contribuíram
-  positivamente — mas repare na escala: <strong>TRY=X está quatro vezes acima do
-  segundo colocado</strong>.</figcaption>
+  <figcaption>Contribuição anualizada líquida do encargo dos ETFs. 24 de 40
+  contribuíram positivamente; TRY=X permanece em primeiro (+1,16% a.a.),
+  aproximadamente duas vezes JPY=X (+0,58% a.a.).</figcaption>
 </figure>
 
 <div class="callout bad">
@@ -434,7 +449,7 @@ código.</strong></p>
 
 <h3>A correção, com dados reais de juros</h3>
 <p>Séries do FRED (IMF/IFS). Cada par virou um índice de <strong>retorno
-total</strong>: <code>retorno_total = retorno_do_preço + carrego</code>, com
+total aproximado</strong>: <code>retorno_total = retorno_do_preço + carrego</code>, com
 <code>carrego = (juro_USD − juro_estrangeiro)/252</code> para pares USD/XXX.</p>
 
 <table>
@@ -448,10 +463,10 @@ total</strong>: <code>retorno_total = retorno_do_preço + carrego</code>, com
   <tr class="ok"><td>JPY=X</td><td class="num">+1,8%</td><td class="num"><strong>+3,3%</strong></td><td class="num">+1,6</td></tr>
 </table>
 
-<p>A paridade de juros se confirma quase exatamente. E o iene vai na direção
-<strong>oposta</strong>: como os juros japoneses eram <em>menores</em> que os
-americanos, ficar comprado em USD/JPY <em>recebe</em> carrego — ali estávamos
-subestimando o resultado.</p>
+<p>Os proxies produzem sinal oposto no iene: como os juros japoneses eram
+<em>menores</em> que os americanos, ficar comprado em USD/JPY recebe carry nesse
+modelo. Isso é consequência da fórmula aplicada, não confirmação empírica da
+paridade de juros.</p>
 
 <div class="callout warn">
   <p><strong>Limitação declarada:</strong> G10 (AUD, CAD, GBP, SEK, EUR) não tem
@@ -460,33 +475,31 @@ subestimando o resultado.</p>
   mas o erro residual existe.</p>
 </div>
 
-<h3>O impacto no resultado</h3>
+<h3>Impacto naquela etapa histórica</h3>
 <table>
-  <tr><th>Universo</th><th class="num">sem carrego</th><th class="num">com carrego (correto)</th></tr>
+  <tr><th>Universo</th><th class="num">sem carrego</th><th class="num">com proxy de carry</th></tr>
   <tr><td>8 ativos</td><td class="num">0,41 (t=1,88)</td><td class="num">0,36 (t=1,64)</td></tr>
   <tr class="hl"><td><strong>40 ativos</strong></td><td class="num">0,60 (t=2,78)</td>
       <td class="num"><strong>0,50 (t=2,30)</strong></td></tr>
 </table>
 
-<p><strong>A expansão do universo ajudou de verdade: 0,36 → 0,50.</strong> A
-queda foi menor do que se poderia supor porque a estratégia é trend following,
-não compra-e-segura — ela opera nos dois sentidos e continua capturando
-movimento mesmo sem o drift artificial.</p>
+<p>Na convenção de overlay daquela etapa, a expansão elevou o Sharpe de 0,36
+para 0,50. A auditoria posterior de deriva e calendário leva o overlay a 0,48,
+e a auditoria de financiamento dos ETFs leva o stress a 0,13; portanto 0,50 não é o veredito
+econômico final.</p>
 
-<h3>A previsão registrada se confirma nos dados limpos</h3>
+<h3>Reaplicação pós-hoc da previsão registrada</h3>
 <p>A metodologia registrada em <code>88392ef</code> era escalar o Sharpe pela raiz
-das apostas efetivas. Aplicada à base corrigida:</p>
+das apostas efetivas. Aplicada à base com proxy de carry:</p>
 <pre>previsto  =  0,36 × raiz(11,2 / 7,0)  =  0,455
 realizado =  0,50
-erro      =  +0,045      <span class="c">dentro da banda de ±0,10 declarada antes</span></pre>
+erro      =  +0,045      <span class="c">com insumos alterados depois do registro</span></pre>
 
-<p><strong>O ganho de diversificação era real; o que estava errado era o
-instrumento, não a teoria.</strong></p>
-<p><small class="note">Ressalva: a previsão original (0,65) usava o walk-forward
-sobre dados não corrigidos. O número acima é a mesma fórmula recalculada sobre a
-base limpa — a metodologia foi registrada antes, o insumo mudou.</small></p>
+<p><strong>Isso não é confirmação independente.</strong> A previsão original
+(0,65) usava o walk-forward e o realizado daquela etapa foi 0,48, fora da banda
+de ±0,10. A conta acima reutiliza a fórmula com insumos conhecidos depois.</p>
 
-<h3>Concentração depois da correção</h3>
+<h3>Concentração após o proxy de carry, antes do funding dos ETFs</h3>
 <table>
   <tr><th>Universo</th><th class="num">Sharpe</th><th class="num">t</th></tr>
   <tr class="hl"><td>completo (40 ativos)</td><td class="num">0,50</td><td class="num">2,30</td></tr>
@@ -505,114 +518,84 @@ e não a 4× de distância. Mesmo sem <em>nenhuma</em> moeda, o universo de 40 r
   <p><strong>Por que TRY=X permanece no universo.</strong> Foi selecionada pelo
   funil mecânico, por correlação, antes de qualquer backtest. Removê-la agora
   <em>porque sabemos que rendeu bem</em> seria overfitting ao contrário — a mesma
-  falha metodológica com o sinal invertido. Ela fica, com o carrego corretamente
-  cobrado e a sensibilidade reportada ao lado.</p>
+  falha metodológica com o sinal invertido. Ela fica, com o proxy de carry
+  aplicado e suas limitações reportadas ao lado.</p>
 </div>
 
 <h2 class="pb">9. As ordens geradas</h2>
 
 <div class="grid">
   <div class="card"><div class="l">Ordens totais</div><div class="k">10.200</div><div class="d">2005–2026</div></div>
-  <div class="card"><div class="l">Compras</div><div class="k">5.049</div><div class="d">49,5%</div></div>
-  <div class="card"><div class="l">Vendas</div><div class="k">5.151</div><div class="d">50,5%</div></div>
+  <div class="card"><div class="l">Compras</div><div class="k">5.061</div><div class="d">49,6%</div></div>
+  <div class="card"><div class="l">Vendas</div><div class="k">5.139</div><div class="d">50,4%</div></div>
   <div class="card"><div class="l">Por rebalanceamento</div><div class="k">39,4</div><div class="d">259 rebalanceamentos</div></div>
 </div>
 
-<p>Uma <em>ordem</em> é uma mudança de peso entre dois rebalanceamentos. A lista
+<p>Uma <em>ordem</em> é a mudança do peso derivado pré-trade para o novo alvo. A lista
 completa está em <code>resultados/ordens_completas.csv</code> (10.200 linhas com
 data, ativo, lado, tamanho, peso final e posição resultante).</p>
 
-<h3>Amostra — o último rebalanceamento (16/07/2026)</h3>
-<table class="tight">
-  <tr><th>Data</th><th>Ativo</th><th>Lado</th><th class="num">Tamanho</th>
-      <th class="num">Peso final</th><th>Posição</th></tr>
-  <tr><td>2026-07-16</td><td>TRY=X</td><td>COMPRA</td><td class="num">0,0665</td><td class="num">+0,6125</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>ZC=F</td><td>VENDA</td><td class="num">0,0776</td><td class="num">−0,0349</td><td>vendido</td></tr>
-  <tr><td>2026-07-16</td><td>XLP</td><td>VENDA</td><td class="num">0,0066</td><td class="num">+0,0539</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>^BSESN</td><td>VENDA</td><td class="num">0,0067</td><td class="num">−0,0679</td><td>vendido</td></tr>
-  <tr><td>2026-07-16</td><td>XLV</td><td>VENDA</td><td class="num">0,0063</td><td class="num">+0,0475</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>ZW=F</td><td>VENDA</td><td class="num">0,0055</td><td class="num">+0,0264</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>XLU</td><td>VENDA</td><td class="num">0,0049</td><td class="num">+0,0491</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>VNQ</td><td>VENDA</td><td class="num">0,0046</td><td class="num">+0,0525</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>^HSI</td><td>VENDA</td><td class="num">0,0038</td><td class="num">+0,0482</td><td>comprado</td></tr>
-  <tr><td>2026-07-16</td><td>^AXJO</td><td>COMPRA</td><td class="num">0,0029</td><td class="num">+0,0714</td><td>comprado</td></tr>
-</table>
-
 <h3>Carteira na última data — 40 posições</h3>
-<p>26 compradas, 14 vendidas, exposição bruta 3,00× (no teto).</p>
-
-<table class="tight">
-  <tr><th>Comprado</th><th class="num">peso</th><th>Comprado</th><th class="num">peso</th>
-      <th>Vendido</th><th class="num">peso</th></tr>
-  <tr><td>TRY=X</td><td class="num">+0,613</td><td>^HSI</td><td class="num">+0,048</td><td>OJ=F</td><td class="num">−0,011</td></tr>
-  <tr><td>CAD=X</td><td class="num">+0,230</td><td>XLV</td><td class="num">+0,048</td><td>CC=F</td><td class="num">−0,012</td></tr>
-  <tr><td>IEF</td><td class="num">+0,181</td><td>LE=F</td><td class="num">+0,048</td><td>KC=F</td><td class="num">−0,016</td></tr>
-  <tr><td>JPY=X</td><td class="num">+0,159</td><td>EWJ</td><td class="num">+0,041</td><td>NG=F</td><td class="num">−0,021</td></tr>
-  <tr><td>INR=X</td><td class="num">+0,124</td><td>GLD</td><td class="num">+0,038</td><td>^JKSE</td><td class="num">−0,026</td></tr>
-  <tr><td>AUDUSD=X</td><td class="num">+0,114</td><td>XLE</td><td class="num">+0,036</td><td>SB=F</td><td class="num">−0,032</td></tr>
-  <tr><td>^AXJO</td><td class="num">+0,071</td><td>HG=F</td><td class="num">+0,033</td><td>HE=F</td><td class="num">−0,033</td></tr>
-  <tr><td>DBA</td><td class="num">+0,064</td><td>ZL=F</td><td class="num">+0,033</td><td>ZC=F</td><td class="num">−0,035</td></tr>
-  <tr><td>XLP</td><td class="num">+0,054</td><td>CT=F</td><td class="num">+0,028</td><td>^BSESN</td><td class="num">−0,068</td></tr>
-  <tr><td>VNQ</td><td class="num">+0,053</td><td>ZW=F</td><td class="num">+0,026</td><td>BRL=X</td><td class="num">−0,073</td></tr>
-  <tr><td>EFA</td><td class="num">+0,052</td><td>PL=F</td><td class="num">+0,024</td><td>ZAR=X</td><td class="num">−0,077</td></tr>
-  <tr><td>XLU</td><td class="num">+0,049</td><td>PA=F, EWT, BZ=F</td><td class="num">+0,022…</td>
-      <td>SEK=X, MXN=X, GBPUSD=X</td><td class="num">−0,105…</td></tr>
-</table>
+<p>25 compradas, 15 vendidas, exposição bruta 3,00× (no teto). A maior posição
+comprada é CAD=X (+0,229); a maior vendida é TRY=X (−0,614). A tabela integral,
+gerada pelo mesmo cenário financiado usado nas figuras, está em
+<code>resultados/carteira_atual.csv</code>. Não se mantém uma cópia manual aqui
+para evitar divergência entre relatório e motor.</p>
 
 <h2 class="pb">10. Validação</h2>
 
-<h3>10.1 Robustez — 6 de 6 aprovados (era 4 de 6 com 8 ativos)</h3>
+<h3>10.1 Robustez — 6 de 6 no overlay; 3 de 6 com ETFs financiados</h3>
 <p>Critérios <strong>declarados antes da execução</strong>, para que não fosse
 possível olhar o resultado e inventar o critério que ele satisfaz.</p>
 
 <table>
-  <tr><th>#</th><th>Teste</th><th>Critério</th><th class="num">8 ativos</th><th class="num">40 ativos</th></tr>
+  <tr><th>#</th><th>Teste</th><th>Critério</th><th class="num">Overlay</th><th class="num">ETFs financiados</th></tr>
   <tr><td>A</td><td>Custos</td><td>superar o CDI com o dobro do custo</td>
-      <td class="num tick">ok</td><td class="num tick">ok</td></tr>
+      <td class="num tick">ok</td><td class="num cross">falha</td></tr>
   <tr><td>B</td><td>Janela de volatilidade</td><td>Sharpe ≥ 0,25 de 20 a 250 dias</td>
-      <td class="num tick">ok</td><td class="num tick">ok (mín. 0,54)</td></tr>
+      <td class="num tick">ok</td><td class="num cross">mín. 0,07</td></tr>
   <tr><td>C</td><td>Sub-períodos</td><td>superar o CDI em 3 dos 4 blocos</td>
-      <td class="num cross">2/4</td><td class="num tick">3/4</td></tr>
+      <td class="num tick">3/4</td><td class="num tick">3/4</td></tr>
   <tr><td>D</td><td>Teto de alavancagem</td><td>com teto 2×, superar o CDI</td>
       <td class="num tick">ok</td><td class="num tick">ok</td></tr>
   <tr><td>E</td><td>Jackknife</td><td>Sharpe ≥ 0,25 retirando qualquer bloco</td>
-      <td class="num cross">0,19</td><td class="num tick">0,43</td></tr>
+      <td class="num tick">0,41</td><td class="num cross">0,00</td></tr>
   <tr><td>F</td><td>Horizonte do sinal</td><td>positivo em 3 dos 4 horizontes</td>
-      <td class="num tick">ok</td><td class="num tick">4/4</td></tr>
+      <td class="num tick">4/4</td><td class="num tick">3/4</td></tr>
 </table>
 
-<p><small class="note">O jackknife do universo de 40 foi feito por <em>classe</em>
-(retirando todas as commodities, todo o câmbio, etc.), porque com 40 ativos
-retirar um de cada vez confirmaria o óbvio. Foi justamente isso que <strong>escondeu
-a dependência da lira</strong> — descoberta depois, pelo gráfico de contribuição.
-Uma lição metodológica: agregação esconde concentração.</small></p>
+<p><small class="note">O jackknife foi feito por classe. No cenário financiado,
+reprovam custos, janela de volatilidade e jackknife. O dobro do custo reduz o
+CAGR a 10,2%, abaixo do CDI de 10,7%.</small></p>
 
 <h3>10.2 Sub-períodos — o buraco que resiste a tudo</h3>
 <table>
-  <tr><th>Período</th><th class="num">Sharpe (40, corrigido)</th><th class="num">CAGR</th>
+  <tr><th>Período</th><th class="num">Sharpe (ETFs financiados)</th><th class="num">CAGR</th>
       <th class="num">CDI</th><th>Superou?</th></tr>
-  <tr class="ok"><td>2005–2010</td><td class="num">0,58</td><td class="num">19,8%</td><td class="num">12,9%</td><td>sim</td></tr>
-  <tr class="ok"><td>2011–2015</td><td class="num">0,62</td><td class="num">16,8%</td><td class="num">10,4%</td><td>sim</td></tr>
-  <tr class="bad"><td><strong>2016–2020</strong></td><td class="num"><strong>−0,45</strong></td>
-      <td class="num">2,4%</td><td class="num">7,8%</td><td><strong>não</strong></td></tr>
-  <tr class="ok"><td>2021–2026</td><td class="num">1,15</td><td class="num">24,4%</td><td class="num">11,3%</td><td>sim</td></tr>
+  <tr class="ok"><td>2005–2010</td><td class="num">0,16</td><td class="num">14,3%</td><td class="num">12,9%</td><td>sim</td></tr>
+  <tr class="ok"><td>2011–2015</td><td class="num">0,17</td><td class="num">11,8%</td><td class="num">10,4%</td><td>sim</td></tr>
+  <tr class="bad"><td><strong>2016–2020</strong></td><td class="num"><strong>−0,68</strong></td>
+      <td class="num">0,1%</td><td class="num">7,8%</td><td><strong>não</strong></td></tr>
+  <tr class="ok"><td>2021–2026</td><td class="num">0,76</td><td class="num">19,6%</td><td class="num">11,3%</td><td>sim</td></tr>
 </table>
 
-<p><strong>2016–2020 é a única fraqueza que sobreviveu a tudo</strong> que
-tentamos: mais ativos, horizonte adaptativo, todas as variações de parâmetro — e
-a correção do carrego, que a <em>piorou</em> (de −0,23 para −0,45).</p>
+<p><strong>2016–2020 é a fraqueza persistente</strong>: mais ativos, horizonte
+adaptativo e as variações testadas não a removeram. O proxy de carry levou o
+Sharpe do bloco de −0,23 para −0,45 no overlay; o funding dos ETFs o leva a
+−0,68.</p>
 
-<h4>A causa foi medida</h4>
+<h4>Diagnóstico separado no universo de 8 ativos</h4>
 <table>
   <tr><th>Período</th><th class="num">Trocas de direção/ano</th><th class="num">Duração média da tendência</th></tr>
-  <tr><td>2005–2010</td><td class="num">8,3</td><td class="num"><strong>11,5 meses</strong></td></tr>
-  <tr><td>2011–2015</td><td class="num">11,0</td><td class="num">8,7 meses</td></tr>
-  <tr><td>2016–2020</td><td class="num">14,0</td><td class="num"><strong>6,9 meses</strong></td></tr>
-  <tr><td>2021–2026</td><td class="num">12,7</td><td class="num">7,5 meses</td></tr>
+  <tr><td>2005–2010</td><td class="num">7,8</td><td class="num"><strong>12,3 meses</strong></td></tr>
+  <tr><td>2011–2015</td><td class="num">12,2</td><td class="num">7,9 meses</td></tr>
+  <tr><td>2016–2020</td><td class="num">12,0</td><td class="num"><strong>8,0 meses</strong></td></tr>
+  <tr><td>2021–2026</td><td class="num">10,9</td><td class="num">8,8 meses</td></tr>
 </table>
-<p>O sinal olha 12 meses para trás. Com tendências de 7 meses, o robô entra
-sistematicamente <strong>atrasado</strong> — a tendência já virou quando ele se
-posiciona. É o "chicote", medido.</p>
+<p>O sinal olha 12 meses para trás, e tendências estimadas mais curtas podem
+torná-lo mais exposto a reversões. Esta tabela, porém, usa o universo de 8 ativos;
+o resultado principal usa 40. Além disso, duração e desempenho vêm do mesmo
+painel. A associação é descritiva e não identifica a causa do bloco ruim.</p>
 
 <h3>10.3 Hipóteses testadas e refutadas</h3>
 <table>
@@ -649,7 +632,7 @@ para que ninguém precise adivinhar quantas foram testadas.</p>
 Critério 6 do edital = 15% da nota.</small></p>
 
 <h3>O uso de maior valor não foi escrever código</h3>
-<p>Foi <strong>revisão adversarial</strong>. Em quatro ocasiões a IA encontrou
+<p>Foi <strong>revisão adversarial</strong>. Em cinco ocasiões a IA encontrou
 erros que produziam números plausíveis e errados — o tipo mais perigoso, porque
 não quebra nada e não aparece em teste.</p>
 
@@ -658,10 +641,16 @@ não quebra nada e não aparece em teste.</p>
   <tr><td><strong>Carrego cambial ignorado</strong><br>
       <small class="note">no modelo original da equipe</small></td>
       <td>Lira turca parecia render +18% a.a.; com juros, rende −1,6%. Sharpe inflado de 0,50 para 0,60.</td></tr>
+  <tr><td><strong>CDI somado a ETFs financiados</strong><br>
+      <small class="note">encontrado na revisão por pares</small></td>
+      <td>O overlay dá Sharpe 0,48; cobrar CDI da exposição líquida nos 11 ETFs reduz para 0,13.</td></tr>
   <tr><td>Vazamento temporal no backtest do MARÉ</td>
       <td>49% da série de "design" era, na verdade, validação. Levou ao abandono da estratégia.</td></tr>
   <tr><td>Erro de calendário no MIYAGI <br><small class="note">no código que a própria IA escreveu</small></td>
       <td>CDI subestimado de 10,68% para 9,21%; Sharpe inflado em ~0,14.</td></tr>
+  <tr><td><strong>Limite de preenchimento aplicado duas vezes</strong><br>
+      <small class="note">encontrado na auditoria final</small></td>
+      <td>Valores imputados renovavam sua própria idade. Corrigir o calendário elevou os dias com exposição sem retorno de 330 para 489.</td></tr>
   <tr><td>Teste de sanidade que afirmava algo falso</td>
       <td>Imprimia "Sharpe 0,41 está na faixa 0,5–1,0" — não está.</td></tr>
   <tr><td>Rótulos de gráfico fora da área visível</td>
@@ -669,22 +658,22 @@ não quebra nada e não aparece em teste.</p>
 </table>
 
 <div class="callout good">
-  <p><strong>O caso mais instrutivo foi o do carrego</strong>, porque nenhum teste
-  o teria pego. O código estava certo, os dados estavam certos, e os seis testes
-  de robustez passaram — todos <em>com o erro dentro</em>. Ele só apareceu porque
-  um gráfico de contribuição por ativo mostrou uma concentração que não fazia
-  sentido econômico, e alguém perguntou "por quê?".</p>
+  <p><strong>Robustez não corrige a economia do instrumento.</strong> O overlay
+  passou 6 de 6 testes com a hipótese de financiamento errada. Depois do encargo
+  dos ETFs, passa 3 de 6. O diagnóstico surgiu da revisão adversarial, não de
+  procurar uma parametrização com Sharpe maior.</p>
 </div>
 
 <h3>Previsão registrada antes do teste</h3>
-<p>O commit <code>88392ef</code> registra a previsão de Sharpe 0,65 <em>antes</em>
-da existência do script de backtest, com os critérios de julgamento declarados
-junto. O timestamp do git torna impossível ter escrito a previsão depois de ver
-o resultado.</p>
+<p>O commit <code>88392ef</code> registra a previsão de Sharpe 0,65 antes da
+existência do script de backtest, com os critérios de julgamento declarados
+junto. O histórico versionado é evidência útil da sequência de trabalho, mas o
+timestamp local do Git não é, sozinho, prova criptográfica independente de
+pré-registro.</p>
 
 <h3>Limitações encontradas</h3>
 <ul>
-  <li><strong>A IA erra de forma plausível.</strong> Dois dos quatro bugs estavam
+  <li><strong>A IA erra de forma plausível.</strong> Três dos cinco bugs estavam
   em código que ela mesma escreveu, e produziam números perfeitamente razoáveis.</li>
   <li><strong>Ela especula com confiança excessiva.</strong> Atribuiu o salto de
   2021–2026 às commodities; o jackknife contradisse (retirá-las <em>melhora</em>
@@ -698,14 +687,13 @@ o resultado.</p>
 
 <h2>12. Pendências</h2>
 
-<h3><span class="tag t-alto">ALTO</span> &nbsp;Montar o relatório de 5 páginas</h3>
-<p>Decisões de conteúdo, com espaço apertado. Sugestão de prioridade:</p>
+<h3><span class="tag t-alto">ALTO</span> &nbsp;Reconstruir instrumentos negociáveis</h3>
+<p>O relatório de cinco páginas já incorpora a auditoria. A prioridade técnica agora é:</p>
 <ol>
-  <li>Conceito + robô (obrigatório, 25%)</li>
-  <li>O funil e a árvore de apostas independentes — visual forte</li>
-  <li>Resultados <strong>com</strong> a dependência da lira declarada</li>
-  <li>O buraco de 2016–2020 e sua causa medida</li>
-  <li>IA como revisora adversarial (15%)</li>
+  <li>contratos e rolls reais de futuros;</li>
+  <li>forwards de FX com séries de juros vintage;</li>
+  <li>índices total return ou futuros de ações;</li>
+  <li>funding, collateral, margem, borrow e custos por instrumento.</li>
 </ol>
 
 <h3><span class="tag t-med">MÉDIO</span> &nbsp;Decisões pendentes</h3>
@@ -728,6 +716,12 @@ o resultado.</p>
   <li><strong>Taxas de política/redesconto são proxy</strong> do custo real de
   financiamento, não o custo exato. A ordem de grandeza é o que sustenta a
   conclusão.</li>
+  <li><strong>Lag de publicação:</strong> deslocar o carry congelado por 21
+  pregões muda o Sharpe do overlay de 0,476 para 0,466; isso não cria vintages.</li>
+  <li><strong>Dados ausentes:</strong> em 489 dias (9,1%) havia posição e algum
+  retorno ausente; no pior dia, 45,23% do patrimônio estava em exposição
+  nocional sem retorno observável no overlay e 45,25% no stress
+  financiado.</li>
   <li>Concentração residual: TRY=X segue como maior contribuidora, com peso
   elevado criado pelo dimensionamento por 1/volatilidade.</li>
 </ul>
@@ -736,9 +730,9 @@ o resultado.</p>
   <p><strong>Sobre a narrativa.</strong> O edital diz que complexidade não pontua
   e que "estratégias simples e bem executadas podem obter desempenho superior a
   estratégias complexas mal justificadas". Temos as duas metades: uma estratégia
-  complexa testada com rigor e descartada, e uma simples que sobreviveu ao
-  escrutínio — com as fraquezas medidas e reportadas, inclusive as que
-  encontramos contra nosso próprio interesse.</p>
+  complexa testada com rigor e descartada, e uma simples submetida ao mesmo
+  escrutínio — com as falhas e a ausência de evidência no cenário financiado
+  reportadas, inclusive contra nosso próprio interesse.</p>
 </div>
 
 </body>

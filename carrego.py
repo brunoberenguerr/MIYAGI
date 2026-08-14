@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-MIYAGI — correção do carrego cambial (interest rate carry)
-===========================================================
+MIYAGI — proxy de carrego cambial (interest rate carry)
+=======================================================
 
 O ERRO QUE ESTE ARQUIVO CORRIGE
 -------------------------------
@@ -20,9 +20,9 @@ A paridade COBERTA de juros liga o diferencial de juros ao preço a termo. A
 paridade DESCOBERTA é uma hipótese sobre a desvalorização esperada e não uma
 identidade; ela não é usada aqui como prova de retorno realizado.
 
-A CORREÇÃO
-----------
-Para cada par de câmbio, constrói-se um índice de RETORNO TOTAL:
+O PROXY
+-------
+Para cada par de câmbio, constrói-se um índice de RETORNO TOTAL APROXIMADO:
 
     retorno_total  =  retorno_do_preço  +  carrego
 
@@ -32,9 +32,9 @@ onde, para um par cotado como USD/XXX (quantos XXX por dólar):
 
 e para um par cotado como XXX/USD, o sinal se inverte.
 
-O sinal de momentum passa a ler o retorno TOTAL, não só o preço — que é o
-correto: na prática se negocia o contrato a termo, cujo preço já embute o
-carrego.
+O sinal de momentum passa a ler preço mais diferencial de taxas. Isso aproxima
+a economia de um contrato a termo, mas não reconstrói forwards negociáveis nem
+prova a paridade coberta com os retornos realizados.
 
 FONTE DOS JUROS
 ---------------
@@ -49,7 +49,9 @@ diferencial pequeno contra o dólar (0-5 p.p.), então o erro residual é de
 ordem muito menor que o da lira — mas existe.
 
 Taxas de política/redesconto são um proxy do custo real de financiamento, não
-o custo exato. A ordem de grandeza é o que importa aqui.
+o custo exato. As séries públicas também não têm vintages nesta extração e são
+alinhadas sem modelar o atraso de publicação. A ordem de grandeza é o que
+importa aqui; o resultado não deve ser chamado de carry "correto".
 """
 
 from __future__ import annotations
@@ -141,9 +143,9 @@ def carrega_juros(calendario: pd.DatetimeIndex) -> tuple[dict, pd.DataFrame]:
 
 
 def aplica_carrego(precos: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[str]]:
-    """Substitui os preços de câmbio por índices de RETORNO TOTAL.
+    """Substitui os preços por índices com proxy de retorno total.
 
-    Devolve (painel corrigido, pares corrigidos, pares sem dado).
+    Devolve (painel com proxy, pares tratados, pares sem dado).
     """
     taxas, cobertura = carrega_juros(pd.DatetimeIndex(precos.index))
 
@@ -201,16 +203,19 @@ def aplica_carrego(precos: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[
 
 def main() -> None:
     print("=" * 78)
-    print("CORREÇÃO DO CARREGO CAMBIAL")
+    print("PROXY DE CARREGO CAMBIAL")
     print("=" * 78)
     print("O backtest usava só a variação do preço à vista. Para câmbio isso")
     print("ignora os juros das duas pontas -- erro enorme em moedas de juro alto.\n")
+    print("ATENÇÃO: esta rotina baixa a versão atualmente publicada pelo FRED.")
+    print("Ela não cria vintages nem modela lag de publicação; o CSV versionado")
+    print("é a entrada congelada para reproduzir os resultados da auditoria.\n")
 
     precos = pd.read_csv(AQUI / "dados" / "pool_expandido.csv",
                          index_col=0, parse_dates=True)
     corrigido, ok, faltando = aplica_carrego(precos)
 
-    print(f"PARES CORRIGIDOS ({len(ok)}): {', '.join(ok)}")
+    print(f"PARES COM PROXY ({len(ok)}): {', '.join(ok)}")
     print(f"PARES SEM DADO DE JUROS ({len(faltando)}): {', '.join(faltando)}")
     print("  (G10 majoritariamente -- diferencial pequeno contra o dólar,")
     print("   erro residual de ordem muito menor que o da lira)\n")

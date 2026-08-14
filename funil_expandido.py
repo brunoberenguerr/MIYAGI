@@ -36,8 +36,13 @@ E O QUE ESTE SCRIPT NÃO FAZ
 Não roda backtest. De propósito.
 
 A sequência honesta é: selecionar → REGISTRAR A PREVISÃO → só então medir.
-Se o backtest rodasse aqui, seria impossível provar (inclusive para nós mesmos)
-que a previsão não foi escrita depois de ver o resultado.
+Se o backtest rodasse aqui, seria muito mais difícil documentar que a previsão
+não foi escrita depois de ver o resultado.
+
+Hoje essa sequência já ocorreu e está preservada no Git. Rodar novamente este
+arquivo sobre o painel com proxy de carry é uma reconstrução pós-hoc, não um
+novo pré-registro. A previsão original de 0,65 falhou: o walk-forward daquela
+etapa entregou 0,48, fora da banda declarada de ±0,10.
 """
 
 from __future__ import annotations
@@ -94,8 +99,8 @@ def apostas_efetivas(corr: pd.DataFrame, ativos: list[str]) -> float:
         N_eff  =  N / (1 + (N-1) · ρ_médio)
 
     Traduzindo: 8 ativos que andam sempre juntos (ρ=1) valem 1 aposta;
-    8 ativos totalmente independentes (ρ=0) valem 8. O universo atual tem
-    ρ médio 0,04 e vale ~6,1.
+    8 ativos totalmente independentes (ρ=0) valem 8. Os valores concretos são
+    recalculados e impressos pela função principal; não ficam congelados aqui.
 
     É este número — e não a contagem de ativos — que a teoria liga ao Sharpe.
     """
@@ -126,6 +131,8 @@ def main() -> None:
     print("=" * 80)
     print("FUNIL DE SELEÇÃO — pool expandido")
     print("=" * 80)
+    print("REGISTRO HISTÓRICO: os resultados do backtest já são conhecidos;")
+    print("a conta ao fim não é uma nova previsão independente.\n")
 
     precos = carregar_pool_oficial()
     print(f"Pool: {precos.shape[1]} candidatos | "
@@ -189,14 +196,14 @@ def main() -> None:
         print("    (foram absorvidos por clusters cujo medoide é outro ativo)")
 
     # =================================================================
-    # A PREVISÃO — registrada ANTES de qualquer backtest
+    # RECONSTRUÇÃO da previsão que foi registrada antes do backtest
     # =================================================================
     SHARPE_ATUAL = 0.51        # walk-forward, período inteiro, universo de 8
     fator = np.sqrt(n_novo / n_atual)
     previsto = SHARPE_ATUAL * fator
 
     print("\n" + "=" * 80)
-    print("PREVISÃO REGISTRADA ANTES DO BACKTEST")
+    print("RECONSTRUÇÃO DA PREVISÃO HISTÓRICA")
     print("=" * 80)
     print(f"""
   A teoria de portfólio liga o Sharpe ao número de apostas INDEPENDENTES:
@@ -210,29 +217,21 @@ def main() -> None:
                      =  {SHARPE_ATUAL:.2f} × {fator:.3f}
                      =  {previsto:.2f}
 
-  ESTA É A PREVISÃO. O backtest ainda NÃO foi rodado com o universo novo.
+  Na data do commit original, o backtest ainda não havia sido rodado. Hoje o
+  resultado é conhecido: a previsão original de 0,65 falhou contra 0,48 no
+  walk-forward. Esta conta usa o painel atual e é apenas reconstrução pós-hoc.
 
-  Como interpretar o resultado quando ele sair:
-
-    perto de {previsto:.2f}      o mecanismo está entendido. É o melhor
-                       resultado possível -- prever antes e acertar vale
-                       muito mais que um número alto sem explicação.
-
-    muito ACIMA        sinal de alerta. Se diversificar entregasse mais do
-                       que a teoria permite, provavelmente há erro no
-                       backtest ou viés na seleção.
-
-    muito ABAIXO       a diversificação medida pela correlação não se
-                       traduziu em diversificação real. Também é achado:
-                       significa que a correlação média subestima a
-                       dependência entre os ativos (caudas, regimes).
+  O critério original classificava resultado perto da previsão como sucesso,
+  muito acima como alerta de erro/viés e muito abaixo como falha da medida de
+  diversificação. O valor observado deve ser julgado contra o registro original,
+  não contra a conta recalculada aqui com insumos posteriores.
 """)
 
     # --- grava a seleção --------------------------------------------------
     saida = AQUI / "dados" / "universo_expandido.txt"
     saida.write_text("\n".join(selecionados), encoding="utf-8")
     print(f"  Seleção gravada: dados/universo_expandido.txt ({len(selecionados)} ativos)")
-    print(f"  Previsão a bater: Sharpe {previsto:.2f}")
+    print(f"  Reconstrução pós-hoc da conta: Sharpe {previsto:.2f}")
 
 
 if __name__ == "__main__":
