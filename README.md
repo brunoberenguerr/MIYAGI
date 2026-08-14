@@ -80,6 +80,10 @@ resultados/              séries, pesos e figuras gerados pelo backtest
 
 ## Resultado auditado e interpretação
 
+Os arquivos `resultados/auditoria_*.csv` são as fontes canônicas dos resultados
+reproduzíveis desta seção. Snapshots textuais manuais antigos foram removidos
+para evitar divergências entre saídas históricas e os diagnósticos auditados.
+
 | convenção | CAGR | vol | Sharpe | t IID | max DD |
 |---|---:|---:|---:|---:|---:|
 | overlay homogêneo, resultado histórico | 15,7% | 10,5% | 0,48 | 2,20 | −24,0% |
