@@ -43,9 +43,8 @@ Escrevo aqui o que conta como aprovado, antes de ver qualquer número. Sem isso,
     C. Sub-períodos aprovado se supera o CDI em pelo menos 3 dos 4 blocos.
     D. Alavancagem aprovado se não depende do teto de 3x — ou seja, se com
                    teto 2x ainda supera o CDI.
-    E. Jackknife   aprovado se nenhum ativo isolado é responsável pelo
-                   resultado: retirando qualquer um dos 8, o Sharpe fica
-                   acima de 0,25.
+    E. Jackknife   com 8 ativos, retira um por vez; com 40, retira uma classe
+                   inteira. Aprovado se o pior Sharpe fica acima de 0,25.
     F. Horizonte   aprovado se o sinal funciona numa FAIXA de horizontes
                    (6, 9, 12, 18 meses), e não só em 12.
 """
@@ -54,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -65,8 +65,10 @@ from backtest_miyagi import (
     calcular_retornos,
     rodar_backtest,
 )
+from dados_miyagi import selecionar_etfs
 
 SHARPE_MINIMO = 0.25          # piso declarado para os testes B e E
+AQUI = Path(__file__).resolve().parent
 
 
 def carregar_universo(qual: str):
@@ -116,13 +118,24 @@ def parametro(**overrides):
             setattr(bt, k, v)
 
 
-def _metricas(precos, retornos, cdi, **overrides) -> dict:
+def _metricas(
+    precos, retornos, cdi, ativos_financiados: set[str] | None = None,
+    **overrides,
+) -> dict:
     """Roda um backtest com parâmetros alterados e devolve as métricas."""
+    financiados_presentes = set(ativos_financiados or ()) & set(precos.columns)
     with parametro(**overrides):
-        r = rodar_backtest(precos, retornos, cdi)
+        r = rodar_backtest(
+            precos, retornos, cdi,
+            ativos_financiados=financiados_presentes,
+        )
     m = calcular_metricas(r["retornos"], cdi)
     m["exposicao_media"] = float(r["exposicao"].mean())
     m["custo_total"] = float(r["custos"].sum())
+    m["retornos"] = r["retornos"]
+    m["fracao_teto"] = float(
+        np.isclose(r["exposicao"], bt.ALAVANCAGEM_MAX, rtol=0, atol=1e-8).mean()
+    )
     return m
 
 
@@ -146,19 +159,33 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--universo", choices=["8", "40"], default="8",
                     help="8 = universo original | 40 = universo expandido")
+    ap.add_argument(
+        "--financiamento", choices=["overlay", "etfs"], default="overlay",
+        help=("overlay = convenção histórica | etfs = adjusted close "
+              "financiado à taxa do CDI"),
+    )
     args = ap.parse_args()
 
     print("=" * 78)
     print(f"MIYAGI — TESTES DE ROBUSTEZ (universo de {args.universo} ativos)")
     print("=" * 78)
+    print(f"Convenção de financiamento: {args.financiamento}")
+    if args.financiamento == "etfs":
+        print("Stress a CDI sobre ETFs com retornos ainda em moeda de origem;")
+        print("não é uma carteira implementável em reais.")
     print("A configuração base NÃO muda em função destes resultados.")
     print("Critérios declarados antes da execução (ver docstring do arquivo).\n")
 
     precos, cdi, universo = carregar_universo(args.universo)
     retornos = calcular_retornos(precos)
+    ativos_financiados = (
+        selecionar_etfs(universo) if args.financiamento == "etfs" else set()
+    )
 
     # ---- linha de base -------------------------------------------------
-    base = _metricas(precos, retornos, cdi)
+    base = _metricas(
+        precos, retornos, cdi, ativos_financiados=ativos_financiados
+    )
     sb = base["sharpe"]
     cdi_cagr = calcular_metricas(cdi.reindex(base["patrimonio"].index).fillna(0.0),
                                  cdi)["cagr"]
@@ -179,7 +206,10 @@ def main() -> None:
     custos = [0.0005, 0.001, 0.002, 0.005]
     res_custos = {}
     for c in custos:
-        m = _metricas(precos, retornos, cdi, CUSTO_POR_TRADE=c)
+        m = _metricas(
+            precos, retornos, cdi, ativos_financiados=ativos_financiados,
+            CUSTO_POR_TRADE=c,
+        )
         res_custos[c] = m
         rotulo = f"{c*100:.2f}% por trade" + (" *" if c == 0.001 else "")
         print(_linha(rotulo, m, sb, marca_base=(c == 0.001)))
@@ -196,7 +226,10 @@ def main() -> None:
     # localizar o break-even com precisão de 0,1% não muda nenhuma conclusão.
     be = None
     for c in np.arange(0.002, 0.031, 0.002):
-        m = _metricas(precos, retornos, cdi, CUSTO_POR_TRADE=float(c))
+        m = _metricas(
+            precos, retornos, cdi, ativos_financiados=ativos_financiados,
+            CUSTO_POR_TRADE=float(c),
+        )
         if m["cagr"] <= cdi_cagr:
             be = float(c)
             break
@@ -214,8 +247,10 @@ def main() -> None:
     print(_cabecalho())
     sharpes_b = []
     for j in (20, 40, 60, 90, 120, 250):
-        m = _metricas(precos, retornos, cdi, JANELA_VOL_DIAS=j,
-                      JANELA_EWMA_DIAS=max(252, j))
+        m = _metricas(
+            precos, retornos, cdi, ativos_financiados=ativos_financiados,
+            JANELA_VOL_DIAS=j, JANELA_EWMA_DIAS=max(252, j),
+        )
         sharpes_b.append(m["sharpe"])
         print(_linha(f"{j} dias" + (" *" if j == 60 else ""), m, sb,
                      marca_base=(j == 60)))
@@ -231,7 +266,7 @@ def main() -> None:
     print("   carregando duas décadas de mediocridade.")
     print(f"  {'':<22}{'CAGR':>8}{'Vol':>9}{'Sharpe':>9}{'Max DD':>10}{'CDI':>9}")
     print("  " + "-" * 66)
-    r_base = base["patrimonio"].pct_change().dropna()
+    r_base = base["retornos"]
     blocos = [("2005-2010", "2005", "2010"), ("2011-2015", "2011", "2015"),
               ("2016-2020", "2016", "2020"), ("2021-2026", "2021", "2026")]
     ganhou = 0
@@ -255,13 +290,17 @@ def main() -> None:
     # =================================================================== D
     print("\n" + "=" * 78)
     print("D. TETO DE ALAVANCAGEM")
-    print("   A base bate no teto de 3x em ~23% dos rebalanceamentos. Se o")
+    print(f"   A base bate no teto de 3x em {base['fracao_teto']:.1%} dos "
+          "rebalanceamentos. Se o")
     print("   resultado depende disso, o teto virou parâmetro de retorno e")
     print("   não trava de segurança.")
     print(_cabecalho())
     res_d = {}
     for lev in (1.0, 2.0, 3.0, 5.0):
-        m = _metricas(precos, retornos, cdi, ALAVANCAGEM_MAX=lev)
+        m = _metricas(
+            precos, retornos, cdi, ativos_financiados=ativos_financiados,
+            ALAVANCAGEM_MAX=lev,
+        )
         res_d[lev] = m
         print(_linha(f"teto {lev:.0f}x" + (" *" if lev == 3.0 else ""), m, sb,
                      marca_base=(lev == 3.0)))
@@ -281,7 +320,10 @@ def main() -> None:
         sharpes_e = []
         for ativo in universo:
             restantes = [a for a in universo if a != ativo]
-            m = _metricas(precos[restantes], retornos[restantes], cdi)
+            m = _metricas(
+                precos[restantes], retornos[restantes], cdi,
+                ativos_financiados=ativos_financiados,
+            )
             sharpes_e.append((ativo, m["sharpe"]))
             print(_linha(f"sem {ativo}", m, sb))
     else:
@@ -297,7 +339,10 @@ def main() -> None:
             restantes = [a for a in universo if a not in membros]
             if len(restantes) < 5:
                 continue
-            m = _metricas(precos[restantes], retornos[restantes], cdi)
+            m = _metricas(
+                precos[restantes], retornos[restantes], cdi,
+                ativos_financiados=ativos_financiados,
+            )
             sharpes_e.append((classe, m["sharpe"]))
             print(_linha(f"sem {classe} ({len(membros)})", m, sb))
 
@@ -317,7 +362,10 @@ def main() -> None:
     print(_cabecalho())
     sharpes_f = []
     for h in (6, 9, 12, 18):
-        m = _metricas(precos, retornos, cdi, JANELA_SINAL_MESES=h)
+        m = _metricas(
+            precos, retornos, cdi, ativos_financiados=ativos_financiados,
+            JANELA_SINAL_MESES=h,
+        )
         sharpes_f.append(m["sharpe"])
         print(_linha(f"{h}-1 meses" + (" *" if h == 12 else ""), m, sb,
                      marca_base=(h == 12)))
@@ -331,11 +379,28 @@ def main() -> None:
     print("VEREDITO GERAL")
     print("=" * 78)
     nomes = {"A": "Custos", "B": "Janela de volatilidade", "C": "Sub-períodos",
-             "D": "Teto de alavancagem", "E": "Jackknife de ativos",
+             "D": "Teto de alavancagem", "E": "Jackknife",
              "F": "Horizonte do sinal"}
     for k in "ABCDEF":
         print(f"  {k}. {nomes[k]:<26} {'APROVADO' if veredito[k] else 'REPROVADO'}")
     aprovados = sum(veredito.values())
+    pd.DataFrame([
+        {
+            "teste": k,
+            "nome": nomes[k],
+            "aprovado": bool(veredito[k]),
+            "universo": args.universo,
+            "financiamento": args.financiamento,
+            "cagr_base": base["cagr"],
+            "sharpe_base": base["sharpe"],
+        }
+        for k in "ABCDEF"
+    ]).to_csv(
+        AQUI / "resultados"
+        / f"auditoria_robustez_{args.universo}_{args.financiamento}.csv",
+        index=False,
+        float_format="%.12g",
+    )
     print(f"\n  {aprovados} de 6 testes aprovados.")
     if aprovados == 6:
         print("  O resultado não depende de nenhuma escolha isolada testada.")

@@ -36,8 +36,8 @@ deliberado: quem baixa dados olhando resultado acaba escolhendo por resultado.
 LIMITAÇÃO DECLARADA
 -------------------
 Séries de futuros contínuos do Yahoo (sufixo =F) têm descontinuidade na rolagem
-de contrato. Para horizonte mensal o efeito é de segunda ordem, mas existe e
-precisa constar no relatório.
+de contrato. O efeito pode ser material e impede interpretar diretamente essas
+séries como retorno excedente negociável sem reconstruir contratos e rolagens.
 """
 
 from __future__ import annotations
@@ -45,7 +45,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-import yfinance as yf
 
 AQUI = Path(__file__).resolve().parent
 INICIO = "2000-01-01"
@@ -119,6 +118,7 @@ CANDIDATOS = {
 
 def baixar(tickers: list[str]) -> pd.DataFrame:
     """Baixa preços de fechamento ajustado em lotes."""
+    import yfinance as yf
     dados = {}
     lote = 25
     for i in range(0, len(tickers), lote):

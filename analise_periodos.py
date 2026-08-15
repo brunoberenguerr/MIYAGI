@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-MIYAGI — análise de períodos: por que o Sharpe é 0,41?
-======================================================
+MIYAGI — análise diagnóstica de períodos
+==========================================
 
 A PERGUNTA
 ----------
@@ -14,18 +14,18 @@ Dividir em treino/teste serve para um propósito específico: quando o modelo
 APRENDE alguma coisa dos dados, você precisa de um pedaço que ele nunca viu
 para checar se aprendeu de verdade ou só decorou.
 
-O MIYAGI não aprende nada dos dados. Todos os parâmetros vieram de fora:
+Os parâmetros centrais do MIYAGI vieram de fora:
 
     sinal 12-1            Moskowitz, Ooi & Pedersen (2012)
     janela de vol 60d     convenção da literatura
     alvo de vol 10% a.a.  padrão da indústria de managed futures
     teto 3x               trava de segurança, não otimizada
-    os 8 ativos           funil de correlação feito ANTES, por critério
-                          estatístico, sem olhar retorno
+    os 8 ativos           funil de correlação cego a retorno médio
 
-Nenhum desses números foi escolhido olhando o resultado. Isso significa que
-**os 21 anos inteiros já são out-of-sample** — não existe pedaço "contaminado"
-por ajuste, porque não houve ajuste.
+Isso reduz data snooping de parâmetros, mas não torna os 21 anos fora da
+amostra: elegibilidade, correlações e representantes do funil histórico foram
+calculados com dados posteriores a 2005. A seleção anual pseudo-point-in-time
+é tratada separadamente em ``auditoria_selecao.py``.
 
 Era diferente no MARÉ: lá havia parâmetros calibrados, e por isso o design/
 holdout era obrigatório.
@@ -36,8 +36,9 @@ Existe um sentido real em que o começo da amostra é "in-sample": a estratégia
 foi PUBLICADA em 2012, com dados até ~2009. Ou seja, os pesquisadores
 originais viram o período até 2009 ao formular a hipótese.
 
-O verdadeiro out-of-sample da literatura é, portanto, de ~2012 em diante.
-E existe um fenômeno documentado (McLean & Pontiff, 2016) de que anomalias
+O período posterior à publicação da literatura começa por volta de 2012, mas
+não é holdout deste projeto. Existe um fenômeno documentado (McLean & Pontiff,
+2016) de que anomalias
 publicadas perdem parte do retorno depois de publicadas — o capital entra e
 arbitra o prêmio.
 
@@ -46,6 +47,8 @@ Este script testa exatamente isso.
 
 from __future__ import annotations
 
+import argparse
+
 import numpy as np
 import pandas as pd
 
@@ -53,6 +56,7 @@ from backtest_miyagi import (
     ATIVOS, DIAS_UTEIS_ANO, calcular_metricas, carregar_dados,
     calcular_retornos, rodar_backtest,
 )
+from dados_miyagi import selecionar_etfs
 
 
 def stats(r: pd.Series, cdi: pd.Series, rotulo: str) -> dict:
@@ -94,19 +98,37 @@ def imprime_bloco(titulo: str, linhas: list[dict], cdi_por_bloco: dict) -> None:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--financiamento", choices=["overlay", "etfs"], default="etfs",
+        help="etfs = stress financiado atual | overlay = estimando histórico",
+    )
+    args = ap.parse_args()
     print("=" * 88)
     print("MIYAGI — ANÁLISE DE PERÍODOS")
     print("=" * 88)
 
     precos, cdi = carregar_dados()
     retornos = calcular_retornos(precos)
-    res = rodar_backtest(precos, retornos, cdi)
+    financiados = (
+        selecionar_etfs(list(precos.columns))
+        if args.financiamento == "etfs" else set()
+    )
+    res = rodar_backtest(
+        precos, retornos, cdi, ativos_financiados=financiados
+    )
     r = res["retornos"]
+    m_total = calcular_metricas(r, cdi)
 
+    print(f"Convenção de financiamento: {args.financiamento}")
+    if financiados:
+        print("Stress a CDI sobre ETFs com retornos ainda em moeda de origem;")
+        print("não é uma carteira implementável em reais.")
     print(f"\nPERÍODO USADO NO BACKTEST: {r.index.min():%Y-%m-%d} a "
           f"{r.index.max():%Y-%m-%d}  ({(r.index[-1]-r.index[0]).days/365.25:.1f} anos)")
-    print("Todos os 21,5 anos entram no resultado de Sharpe 0,41. Não há divisão")
-    print("treino/teste porque NENHUM parâmetro foi estimado dos dados.")
+    print(f"Todos os {m_total['anos']:.1f} anos entram no Sharpe "
+          f"{m_total['sharpe']:.2f}. A divisão")
+    print("abaixo é antes/depois, não holdout; o funil completo usa o futuro.")
 
     def sub(ini, fim, nome):
         s = r.loc[ini:fim]
@@ -122,9 +144,16 @@ def main() -> None:
     linhas = [sub("2005", "2026", "2005-2026 (tudo)")]
     imprime_bloco("", linhas, {"2005-2026 (tudo)": cdi_de("2005", "2026")})
     t = linhas[0]["t_stat"]
-    print(f"\n  Leitura: com t = {t:.2f}, o resultado fica no limite da")
-    print("  significância estatística (a convenção pede |t| > 2). O intervalo de")
-    print("  confiança do Sharpe é largo porque 21 anos ainda é POUCO para medir")
+    if abs(t) >= 2:
+        leitura_t = "supera o limiar IID ingênuo de |t|=2"
+    elif abs(t) >= 1.8:
+        leitura_t = "fica próximo do limiar IID ingênuo de |t|=2"
+    else:
+        leitura_t = "fica bem abaixo do limiar IID ingênuo de |t|=2"
+    print(f"\n  Leitura: com t = {t:.2f}, o resultado {leitura_t}.")
+    print(f"  O intervalo de confiança do Sharpe é largo porque "
+          f"{m_total['anos']:.1f} anos ainda")
+    print("  é POUCO para medir")
     print("  um Sharpe pequeno com precisão. Isso é uma limitação honesta do")
     print("  trabalho, não um defeito do código.")
 
@@ -155,12 +184,18 @@ def main() -> None:
 
     # ---------------------------------------------------------------- 5
     print("\n" + "=" * 88)
-    print("5. POR QUE 2016+ FOI FRACO? — contribuição de cada ativo")
+    print("5. CONTRIBUIÇÃO ANTES E DEPOIS DE 2016")
     print("   Reconstrói quanto cada ativo somou (ou tirou) do resultado.")
 
-    # Pesos mensais -> diários (o robô segura a posição entre rebalanceamentos)
-    pesos_diarios = res["pesos"].reindex(r.index).ffill().fillna(0.0)
-    contrib = (pesos_diarios * retornos.reindex(r.index)[ATIVOS].fillna(0.0))
+    # Exposições efetivas antes de cada retorno; elas derivam entre os
+    # rebalanceamentos, em vez de restaurar o alvo gratuitamente todo dia.
+    pesos_diarios = res["pesos_diarios"].reindex(r.index).fillna(0.0)
+    contrib = pesos_diarios * retornos.reindex(r.index)[ATIVOS].fillna(0.0)
+    if financiados:
+        cols = sorted(financiados)
+        contrib.loc[:, cols] = contrib[cols].sub(
+            pesos_diarios[cols].mul(cdi.reindex(r.index).fillna(0.0), axis=0)
+        )
 
     print(f"\n  {'ativo':<12}{'2005-2015':>14}{'2016-2026':>14}{'diferenca':>14}")
     print("  " + "-" * 54)
@@ -202,21 +237,18 @@ def main() -> None:
     print("\n" + "=" * 88)
     print("RESUMO PARA O RELATÓRIO")
     print("=" * 88)
-    print("""
-  1. O backtest cobre 2005-2026 INTEIRO. Não há divisão treino/teste porque
-     nenhum parâmetro foi estimado dos dados -- todos vieram da literatura.
-     Os 21,5 anos já são, nesse sentido, out-of-sample.
+    print(f"""
+  1. O backtest cobre 2005-2026 INTEIRO, mas não é integralmente fora da
+     amostra: o funil histórico usa informação posterior a 2005.
 
-  2. O Sharpe de 0,41 é a MÉDIA de dois regimes muito diferentes: forte até
-     2015, fraco depois. A média esconde os dois.
+  2. O Sharpe {m_total['sharpe']:.2f} é a MÉDIA de regimes diferentes. A média
+     esconde a instabilidade entre blocos.
 
-  3. Com t-stat perto de 2, mesmo o resultado do período inteiro está no
-     limite da significância. A amostra é curta para o tamanho do efeito.
+  3. O t-stat IID do período inteiro é {t:.2f}; HAC, múltiplos testes e bootstrap
+     são reportados separadamente em auditoria_estatistica.py.
 
-  4. A queda pós-2016 coincide com (a) o período pós-publicação da estratégia
-     e (b) uma década documentadamente ruim para trend following. Não
-     conseguimos separar as duas causas com os dados que temos -- e dizer
-     isso é mais defensável do que escolher uma.
+  4. Diferenças entre blocos e mudanças na duração estimada das tendências
+     vêm do mesmo painel. A associação é descritiva e não identifica causa.
 """)
 
 

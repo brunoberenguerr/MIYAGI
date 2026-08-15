@@ -1,0 +1,11 @@
+,valor
+painel_oficial,dados/pool_carrego.csv
+universo_oficial,dados/universo_final.txt
+ativos,40
+lacunas_internas_apos_ffill_limitado,52
+dias_com_posicao_e_algum_retorno_ausente,489
+fracao_dos_dias_com_exposicao_ausente,0.0907909394727
+exposicao_abs_media_quando_ausente,0.0680323306906
+exposicao_abs_maxima_quando_ausente,0.452277776088
+exposicao_abs_maxima_etfs_financiados,0.452529504837
+convencao_exposicao_por_ativo,etfs_financiados

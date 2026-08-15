@@ -1,0 +1,7 @@
+teste,nome,aprovado,universo,financiamento,cagr_base,sharpe_base
+A,Custos,False,40,etfs,0.115375703781,0.126667482288
+B,Janela de volatilidade,False,40,etfs,0.115375703781,0.126667482288
+C,Sub-períodos,True,40,etfs,0.115375703781,0.126667482288
+D,Teto de alavancagem,True,40,etfs,0.115375703781,0.126667482288
+E,Jackknife,False,40,etfs,0.115375703781,0.126667482288
+F,Horizonte do sinal,True,40,etfs,0.115375703781,0.126667482288

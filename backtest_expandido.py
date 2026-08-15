@@ -3,8 +3,14 @@
 MIYAGI — backtest com o universo expandido (40 ativos)
 =======================================================
 
-A PREVISÃO A BATER
+REGISTRO HISTÓRICO
 ------------------
+Este script preserva o teste da previsão original sob a convenção de overlay.
+Ele não é o resultado econômico atual. Para os cenários auditados de carry e
+financiamento, use ``resultado_final.py`` e ``auditoria_financiamento.py``.
+
+A PREVISÃO HISTÓRICA
+---------------------
 Registrada em `funil_expandido.py` e commitada ANTES deste backtest existir:
 
     universo atual ....  8 ativos |  7,0 apostas efetivas | Sharpe 0,51
@@ -41,6 +47,7 @@ from backtest_miyagi import (
     calcular_metricas, calcular_retornos, rodar_backtest, retorno_por_ano,
 )
 from treino_parametros import HORIZONTES, parametro, walk_forward
+from dados_miyagi import carregar_dados_oficiais
 
 AQUI = Path(__file__).resolve().parent
 
@@ -50,27 +57,22 @@ N_EFF_ATUAL, N_EFF_NOVO = 7.0, 11.3
 
 
 def carregar_expandido():
-    """Carrega o pool expandido, restrito aos 40 ativos que o funil selecionou."""
-    precos = pd.read_csv(AQUI / "dados" / "pool_expandido.csv",
-                         index_col=0, parse_dates=True)
-    universo = (AQUI / "dados" / "universo_expandido.txt").read_text(
-        encoding="utf-8").split()
-    universo = [a for a in universo if a in precos.columns]
+    """Compatibilidade: carrega sempre o painel e o universo oficiais.
 
-    cdi = pd.read_csv(AQUI / "dados" / "cdi.csv", index_col=0, parse_dates=True)
-    cdi = cdi.iloc[:, 0].sort_index() / 100.0
-
-    # Mesmo tratamento de calendário do modelo atual: dias úteis do CDI.
-    calendario = cdi.index
-    precos = precos[universo].ffill(limit=5).reindex(calendario).ffill(limit=5)
-    cdi = cdi.reindex(calendario).ffill().fillna(0.0)
-    return precos, cdi, universo
+    O nome histórico da função foi preservado para não quebrar scripts antigos,
+    mas ela não acessa mais ``pool_expandido.csv``. Isso elimina a bifurcação em
+    que robustez e figuras usavam câmbio spot enquanto o resultado final usava
+    o painel com proxy de carry.
+    """
+    return carregar_dados_oficiais()
 
 
 def main() -> None:
     print("=" * 82)
-    print("MIYAGI — BACKTEST COM UNIVERSO EXPANDIDO")
+    print("MIYAGI — DIAGNÓSTICO HISTÓRICO DO OVERLAY EXPANDIDO")
     print("=" * 82)
+    print("ATENÇÃO: este script não cobra o financiamento dos ETFs e não")
+    print("representa retorno implementável. Use resultado_final.py para a auditoria.")
     print(f"  Previsão registrada antes deste backtest: Sharpe {PREVISTO:.2f}")
     print(f"  (= {SHARPE_ATUAL:.2f} × raiz({N_EFF_NOVO}/{N_EFF_ATUAL}))")
 
@@ -95,6 +97,10 @@ def main() -> None:
     r_wf, escolhas = walk_forward(series, cdi)
     m_wf = calcular_metricas(r_wf, cdi)
 
+    p8, cdi8 = bt.carregar_dados()
+    r8 = rodar_backtest(p8, calcular_retornos(p8), cdi8)["retornos"]
+    m8 = calcular_metricas(r8, cdi8)
+
     # ================================================================ saída
     print("\n" + "=" * 82)
     print("RESULTADO")
@@ -109,11 +115,8 @@ def main() -> None:
               f"{m['sharpe']:>9.2f}{t:>7.2f}{m['max_drawdown']:>9.1%}")
         return t
 
-    print("  universo de 8 ativos (referência)")
-    print(f"  {'  base 12-1':<34}{0.150:>8.1%}{0.110:>8.1%}{0.41:>9.2f}"
-          f"{1.88:>7.2f}{-0.204:>9.1%}")
-    print(f"  {'  walk-forward':<34}{0.163:>8.1%}{0.110:>8.1%}{0.51:>9.2f}"
-          f"{2.36:>7.2f}{-0.201:>9.1%}")
+    print("  universo de 8 ativos (overlay atual, referência)")
+    linha("  base 12-1", m8, r8)
     print("\n  universo de 40 ativos (novo)")
     linha("  base 12-1", m_base, r_base)
     t_wf = linha("  walk-forward", m_wf, r_wf)
@@ -152,9 +155,10 @@ def main() -> None:
       erro ............................... {erro:+.2f}
 """)
     if abs(erro) <= 0.10:
-        print("  VEREDITO: previsão CONFIRMADA (erro <= 0,10).")
-        print("  O ganho de diversificação se comportou como a teoria previa.")
-        print("  Prever antes e acertar vale mais que qualquer numero isolado.")
+        print("  VEREDITO: resultado dentro da banda registrada.")
+        print("  Isso seria confirmação apenas se os dados e o estimando fossem")
+        print("  os mesmos do registro original. Correções posteriores exigem")
+        print("  rotular a comparação como consistência pós-hoc.")
     elif erro > 0.10:
         print("  VEREDITO: resultado ACIMA do previsto.")
         print("  Isso NAO deve ser comemorado sem investigar. Diversificar não")
@@ -170,9 +174,12 @@ def main() -> None:
     print("\n" + "=" * 82)
     print("SUB-PERÍODOS — a fraqueza pós-2016 melhorou?")
     print("=" * 82)
-    print(f"  {'período':<16}{'8 ativos (WF)':>18}{'40 ativos (WF)':>18}{'CDI':>9}")
+    print(f"  {'período':<16}{'8 WF (registro)':>18}{'40 ativos (WF)':>18}{'CDI':>9}")
     print("  " + "-" * 62)
-    ref_8 = {"2005-2010": 0.32, "2011-2015": 1.40, "2016-2020": -0.04, "2021-2026": 0.03}
+    # Valores preservados do registro histórico; não são recalculados sobre o
+    # painel atual e por isso o cabeçalho os distingue do diagnóstico corrente.
+    ref_8 = {"2005-2010": 0.32, "2011-2015": 1.40,
+             "2016-2020": -0.04, "2021-2026": 0.03}
     for rot, (ini, fim) in {"2005-2010": ("2005", "2010"),
                             "2011-2015": ("2011", "2015"),
                             "2016-2020": ("2016", "2020"),

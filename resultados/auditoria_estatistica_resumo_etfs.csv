@@ -1,0 +1,9 @@
+,valor
+observacoes_diarias,5387
+sharpe_anual,0.126667482288
+t_iid,0.585650280652
+p_iid_bilateral,0.558135089676
+p_iid_unilateral,0.279067544838
+p_bonferroni_4_bilateral,1
+p_bonferroni_4_unilateral,1
+testes_contados_bonferroni,4

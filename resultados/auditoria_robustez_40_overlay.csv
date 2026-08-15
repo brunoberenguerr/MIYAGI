@@ -1,0 +1,7 @@
+teste,nome,aprovado,universo,financiamento,cagr_base,sharpe_base
+A,Custos,True,40,overlay,0.156615363099,0.475539289497
+B,Janela de volatilidade,True,40,overlay,0.156615363099,0.475539289497
+C,Sub-períodos,True,40,overlay,0.156615363099,0.475539289497
+D,Teto de alavancagem,True,40,overlay,0.156615363099,0.475539289497
+E,Jackknife,True,40,overlay,0.156615363099,0.475539289497
+F,Horizonte do sinal,True,40,overlay,0.156615363099,0.475539289497

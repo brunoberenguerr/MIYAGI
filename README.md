@@ -2,8 +2,21 @@
 
 > *"Não prevê o golpe. Observa o movimento — e responde com técnica."*
 
-Estratégia de **time-series momentum** (trend following) sobre 8 ativos de 6
-classes, com controle de risco por volatilidade alvo. Desafio Quant AI 2026.
+Estratégia de **time-series momentum** (trend following) multiativo, com
+controle de risco por volatilidade alvo. Desafio Quant AI 2026.
+
+> **Estado auditado (14/08/2026).** O overlay histórico de 40 ativos reproduz
+> Sharpe **0,48**, CAGR **15,7%**, vol **10,5%** e max drawdown **−24,0%**.
+> Porém, ele soma CDI integral a 11 ETFs cujo `Adjusted Close` já representa
+> retorno total financiado. Ao cobrar CDI somente da exposição líquida nesses
+> ETFs, mantendo sinais, universo e parâmetros, o resultado cai para Sharpe
+> **0,13** e CAGR **11,5%**. Esse segundo número ainda financia retornos em
+> moeda de origem a CDI, sem conversão cambial. Portanto ele é um stress
+> contábil, e 0,48 é uma estimativa do proxy de overlay; nenhum dos dois é
+> retorno implementável nem o número econômico final da estratégia.
+
+Relatório independente de cinco páginas: [`docs/auditoria_independente.pdf`](docs/auditoria_independente.pdf)
+(fonte editável em `docs/auditoria_independente.tex`).
 
 ---
 
@@ -26,24 +39,101 @@ vem primeiro.
 python -m venv .venv
 .venv/Scripts/activate          # Windows
 pip install pandas numpy matplotlib
-python backtest_miyagi.py
+python resultado_final.py
+python auditoria_dados.py
+python auditoria_financiamento.py
+python auditoria_lag_carrego.py
+python auditoria_estatistica.py
+python auditoria_estatistica.py --financiamento etfs
+python auditoria_selecao.py
+python auditoria_selecao.py --financiamento etfs
+python robustez.py --universo 40
+python robustez.py --universo 40 --financiamento etfs
 ```
 
-Produz as métricas no terminal e grava séries, pesos e as duas figuras em
-`resultados/`.
+Use `pip install -r requirements.txt` para reproduzir as versões auditadas.
+Os scripts imprimem as métricas e gravam diagnósticos regeneráveis em
+`resultados/`. `auditoria_dados.py` grava a máquina da execução em
+`auditoria_ambiente_local.csv`, ignorado pelo Git; o ambiente de referência do
+commit fica separado em `auditoria_ambiente_referencia.csv`. Assim, usar Python
+3.13 no Windows não transforma a versão do interpretador em mudança econômica.
 
 ## Estrutura
 
 ```
 backtest_miyagi.py       o backtest completo, comentado bloco a bloco para leigos
+dados_miyagi.py          fonte única: painel com proxy de carry, universo e calendário
+auditoria_dados.py       lacunas e convenções econômicas dos instrumentos
+auditoria_financiamento.py CDI, ETFs e cenários de financiamento
+auditoria_lag_carrego.py stress de 21 pregões no carry sem inventar vintages
+auditoria_estatistica.py HAC, múltiplos testes e bootstrap em blocos
+auditoria_selecao.py     universo anual usando apenas dados até cada corte
 comparar_estimadores.py  diagnóstico: janela de 60 dias vs. EWMA
 dados/
-  prices.csv             preços diários dos 8 ativos (2003-2026)
+  pool_carrego.csv       painel oficial; proxy de carry onde há juros disponíveis
+  universo_final.txt     lista oficial de 40 ativos
   cdi.csv                CDI diário (o "dinheiro parado" rende isso)
 selecao_universo/        o funil 26 -> 8 ativos: código, matriz, heatmaps
 docs/                    esboço inicial, emblema, edital, metodologia
 resultados/              séries, pesos e figuras gerados pelo backtest
 ```
+
+## Resultado auditado e interpretação
+
+Os arquivos `resultados/auditoria_*.csv` são as fontes canônicas dos resultados
+reproduzíveis desta seção. Snapshots textuais manuais antigos foram removidos
+para evitar divergências entre saídas históricas e os diagnósticos auditados.
+
+| convenção | CAGR | vol | Sharpe | t IID | max DD |
+|---|---:|---:|---:|---:|---:|
+| overlay homogêneo, resultado histórico | 15,7% | 10,5% | 0,48 | 2,20 | −24,0% |
+| **11 ETFs financiados a CDI** | **11,5%** | **10,5%** | **0,13** | **0,59** | **−25,8%** |
+| ETFs + 4 índices financiados, apenas stress | 10,0% | 10,5% | −0,01 | — | −26,9% |
+
+O segundo cenário remove a dupla contagem identificável nos ETFs dentro da
+convenção simplificada, sem mudar sinais, seleção ou parâmetros. A exposição
+líquida média aos ETFs é 34,5% do
+patrimônio e o encargo medido é 3,65 p.p. ao ano em média aritmética. A
+alavancagem bruta total não determina esse número: posições compradas e
+vendidas entram com sinais opostos. O terceiro cenário não é apresentado como
+correção, pois os índices continuam sem dividendos, FX e instrumento negociável.
+
+Os seis critérios de robustez permanecem aprovados **somente no overlay
+homogêneo**. Com os ETFs financiados, passam 3 de 6: reprovam custos, janela de
+volatilidade e jackknife por classe. Nesse cenário, o p IID bilateral é 0,558,
+os t HAC ficam entre 0,51 e 0,58 e todos os intervalos de bootstrap incluem
+zero com folga. Não há evidência estatística de retorno excedente.
+
+No overlay, o p-valor bilateral Bonferroni para quatro testes é 0,112; quatro é
+ainda uma contagem otimista do caminho de pesquisa. No bootstrap em blocos, o
+limite inferior do IC 95% do Sharpe varia de −0,04 a +0,004. Esses números ficam
+preservados para documentar o estimando histórico, não para defender
+implementabilidade.
+
+O funil histórico usou elegibilidade, correlações e medoides calculados com a
+amostra completa até 2026. Por isso 2005–2026 **não é integralmente fora da
+amostra**. Um teste anual, com seleção no fim de cada ano e uso apenas no ano
+seguinte, só pode começar em 2016 porque o próprio funil exige 15 anos de dados;
+em 2016–2026 ele entrega Sharpe 0,34 no overlay e **0,06** com os ETFs
+financiados. O teste ainda é chamado de *pseudo-point-in-time*, pois os arquivos
+públicos não guardam vintages.
+
+Finalmente, o painel mistura ETFs com adjusted close, índices de preço, futuros
+contínuos do Yahoo e câmbio. Depois do preenchimento máximo permitido, restam
+**52 lacunas internas** no calendário oficial; em **489 dias (9,1%)** havia
+posição ativa e algum retorno ausente.
+No pior dia, a exposição nocional absoluta sem retorno observável chegou a
+**45,23% do patrimônio no overlay** e **45,25% no cenário financiado**; o P&L dessas pernas
+foi mantido em zero. Logo, este continua
+sendo um **proxy acadêmico de pesquisa**, não um histórico homogêneo de retornos
+excedentes implementáveis. Não foram inventados roll, dividendos, funding,
+borrow ou taxas ausentes.
+
+O alinhamento agora mede a idade desde a última cotação **realmente observada**.
+A implementação anterior aplicava `ffill(limit=5)` antes e depois do recorte ao
+calendário e podia renovar a idade de um valor já imputado. Dois testes de
+regressão garantem tanto o limite único de cinco datas quanto a preservação de
+uma cotação legítima de FX observada fora do calendário do CDI.
 
 ## As regras da estratégia
 
@@ -54,7 +144,7 @@ resultados/              séries, pesos e figuras gerados pelo backtest
 | **Defesa** | carteira escalada para vol alvo de 10% a.a., alavancagem ≤ 3x | padrão de managed futures |
 | **Rebalanceamento** | mensal, último dia útil | — |
 | **Custos** | 0,1% sobre o valor negociado | premissa declarada |
-| **Caixa** | rende CDI (é estratégia de futuros: você posta margem, o resto rende) | — |
+| **Caixa** | rende CDI; ETFs adjusted close recebem encargo explícito no cenário financiado | — |
 
 **Zero grid search.** Nenhum parâmetro foi escolhido por dar o melhor resultado
 no backtest — todos vêm dos artigos. Testar 500 combinações e ficar com a melhor
@@ -65,7 +155,17 @@ EWMA), as duas foram testadas e o critério de escolha está registrado no códi
 a diferença é imaterial (drawdown −20,4% vs −20,3%), e venceu a mais simples de
 explicar — não a de melhor número. Ver `comparar_estimadores.py`.
 
-## Os 8 ativos
+---
+
+## Histórico da investigação (resultados superseded)
+
+As seções abaixo preservam a ordem real da pesquisa: universo de 8 ativos,
+walk-forward, expansão para 40 e correção do carry. Seus números pertencem à
+convenção disponível em cada etapa e **não substituem o quadro auditado acima**.
+Afirmações de aprovação ou adoção nessa cronologia descrevem decisões daquele
+momento, posteriormente revistas pela auditoria de financiamento.
+
+## Etapa histórica: os 8 ativos
 
 Ibovespa · S&P 500 · Treasuries 7-10a · USD/BRL · EUR/USD · USD/JPY · Ouro ·
 Commodities
@@ -80,7 +180,7 @@ justamente quando o book local sofre.
 
 ---
 
-## Resultados (2005-2026, 21,5 anos)
+## Resultados daquela etapa (2005-2026, 21,5 anos)
 
 | | CAGR | Vol a.a. | Sharpe\* | Max DD | 2008 | 2020 |
 |---|---|---|---|---|---|---|
@@ -108,7 +208,7 @@ taxa americana dos artigos), e o universo de 8 ativos é pequeno frente aos
 
 ---
 
-## Testes de robustez — 4 de 6 aprovados
+## Robustez daquela etapa — 4 de 6 aprovados
 
 `python robustez.py`. Seis testes com **critérios declarados antes da execução**,
 para que não fosse possível olhar o resultado e inventar o critério que ele
@@ -158,21 +258,28 @@ diagnóstico, não como decisão.
 
 ### Por que não há divisão treino/teste
 
-`python analise_periodos.py`
+Diagnóstico atual: `python analise_periodos.py --financiamento etfs`.
 
 Dividir em treino/teste serve para quando o modelo **aprende** algo dos dados —
 você separa um pedaço que ele nunca viu para checar se aprendeu ou decorou.
 
-**O Miyagi não aprende nada dos dados.** Sinal 12-1, janela de 60 dias, alvo de
-10%, teto de 3× e os 8 ativos vieram todos de fora: da literatura ou de um funil
-de correlação feito ex-ante. Nenhum foi escolhido olhando retorno. Nesse sentido,
-**os 21,5 anos inteiros já são out-of-sample** — não existe pedaço contaminado
-por ajuste porque não houve ajuste.
+O sinal e os parâmetros centrais não são treinados para maximizar retorno. Isso
+reduz data snooping, mas **não torna os 21,5 anos fora da amostra**. O funil usa
+retornos e correlações da amostra completa, além de exigir sobrevivência e
+cobertura observadas até 2026. A seleção é cega a retorno médio, mas não é
+point-in-time. O teste auditado em `auditoria_selecao.py` corrige o corte
+explícito apenas a partir de 2016 e ainda é limitado pela ausência de vintages.
 
 (Era diferente no MARÉ: lá havia parâmetros calibrados, então o design/holdout
 era obrigatório.)
 
 Ainda assim, a divisão foi feita — não como treino/teste, mas como antes/depois:
+
+> **Registro histórico.** As tabelas até a expansão de universo foram produzidas
+> antes das correções de deriva, proxy de carry e financiamento. O script
+> `analise_periodos.py` atual usa pesos efetivos derivados, explicita a convenção
+> de financiamento e, por padrão, roda o stress dos ETFs; portanto ele não deve
+> reproduzir estes números superseded.
 
 | divisão | período | Sharpe | t-stat | IC 95% |
 |---|---|---|---|---|
@@ -199,7 +306,7 @@ Moskowitz et al. publicaram em 2012. Se a hipótese valesse, a quebra estaria l�
 **O pós-publicação foi melhor.** A hipótese não se sustenta — a quebra não está
 em 2012, está por volta de 2016.
 
-### A causa mecânica: as tendências encurtaram 40%
+### Mecanismo associado: as tendências estimadas encurtaram 40%
 
 | período | trocas de direção/ano | duração média da tendência |
 |---|---|---|
@@ -208,10 +315,10 @@ em 2012, está por volta de 2016.
 | 2016–2020 | 14,0 | **6,9 meses** |
 | 2021–2026 | 12,7 | 7,5 meses |
 
-Esta é a explicação econômica, e ela é coerente: o sinal olha 12 meses para trás.
-Quando as tendências duravam ~11,5 meses, o sinal chegava a tempo. Quando passaram
-a durar ~7, o robô entra sistematicamente atrasado — a tendência já virou quando
-ele se posiciona. É o "chicote", medido.
+Esta é uma associação economicamente coerente, não uma identificação causal: o
+sinal olha 12 meses para trás. Quando as tendências estimadas duravam ~11,5
+meses, ele tendia a chegar antes; quando passaram a ~7 meses, tornou-se mais
+exposto a reversões. O "chicote" foi medido no mesmo painel do resultado.
 
 A queda é ampla, não concentrada num ativo (contribuição anualizada das posições):
 
@@ -228,13 +335,13 @@ A queda é ampla, não concentrada num ativo (contribuição anualizada das posi
 
 ## Parâmetros treinados: walk-forward vs treino/teste
 
-`python treino_parametros.py`
+Diagnóstico atual: `python treino_parametros.py --financiamento etfs`.
 
 O Miyagi base não treina nada — 12-1 fixo, da literatura. Faz sentido dar a ele
 parâmetros que aprendem? E qual é a forma honesta de fazer isso?
 
-**Por que testar o horizonte do sinal, e não outra coisa:** o diagnóstico de
-períodos mediu que as tendências encurtaram de 11,5 para 6,9 meses. O sinal olha
+**Por que testar o horizonte do sinal, e não outra coisa:** naquele diagnóstico
+histórico, as tendências estimadas encurtaram de 11,5 para 6,9 meses. O sinal olha
 12 meses para trás; se a tendência dura 7, o robô entra atrasado por construção.
 A hipótese econômica veio **antes** do teste — e essa ordem é o que separa
 pesquisa de garimpo.
@@ -249,7 +356,7 @@ pesquisa de garimpo.
 
 Treinar melhorou nos dois casos. Mas **os dois números não valem o mesmo.**
 
-### A tese econômica foi confirmada de forma independente
+### Evidência compatível com a tese, não confirmação independente
 
 O walk-forward escolhe o horizonte mês a mês, olhando só o passado. O que ele
 escolheu ao longo do tempo:
@@ -262,10 +369,10 @@ escolheu ao longo do tempo:
 | **2020–2024** | **9,9 meses** | **6-1** |
 | 2025–2026 | 9,0 meses | 9-1 |
 
-**O robô migrou sozinho para horizontes mais curtos depois de 2020** — sem que
-ninguém programasse isso, e usando apenas dados passados. É exatamente o que a
-tese das "tendências encurtando" previa. Duas medições independentes apontando
-para o mesmo mecanismo é a evidência mais forte deste trabalho.
+**O robô migrou para horizontes mais curtos depois de 2020**, usando apenas
+dados passados dentro da rotina. Isso é compatível com a tese de tendências mais
+curtas, mas as duas medidas vêm do mesmo painel e do mesmo processo de pesquisa;
+não são evidência causal nem confirmação estatisticamente independente.
 
 ### Por que o 0,69 do treino/teste NÃO deve ser reportado como out-of-sample
 
@@ -295,10 +402,11 @@ de ser holdout.
 
 O walk-forward tem as duas. O treino/teste tem só a primeira.
 
-### DECISÃO: o walk-forward é a versão adotada (v2)
+### Decisão daquele estágio: walk-forward adotado como v2
 
-Decidido em 13/08/2026. O walk-forward passa a ser a versão principal da
-estratégia, apresentada **ao lado** da base — não no lugar dela.
+Decidido em 13/08/2026 e depois superseded pela volta ao 12-1 fixo no universo
+expandido. Naquele estágio, o walk-forward passou a ser apresentado **ao lado**
+da base — não no lugar dela.
 
 | | período inteiro (2005–2026) | recente (2017–2026) |
 |---|---|---|
@@ -307,13 +415,12 @@ estratégia, apresentada **ao lado** da base — não no lugar dela.
 
 Três razões, em ordem de peso:
 
-1. **Cruza o limiar de significância.** Com t = 2,36 o resultado é
-   estatisticamente distinguível de zero pela convenção usual (t > 2); a base,
-   com 1,88, não é. É uma diferença qualitativa, não só um número maior.
+1. **Na análise histórica, cruzava o limiar ingênuo.** Isso não basta após
+autocorrelação e múltiplos testes; a auditoria final usa HAC e mantém a base
+12-1, sem apresentar o walk-forward como confirmação independente.
 2. **Entra na faixa da literatura** (0,5–1,0), onde a base ficava de fora.
-3. **A justificativa econômica veio antes do teste** e foi confirmada por um
-   caminho independente (o robô migrou sozinho para horizontes curtos quando as
-   tendências encurtaram).
+3. **A justificativa econômica veio antes do teste**, mas o caminho usa o mesmo
+painel e deve ser descrito como diagnóstico de sensibilidade.
 
 **Por que a base continua sendo reportada junto:** ela tem zero parâmetros
 ajustados, o que é o argumento mais forte possível para "tratamento adequado de
@@ -327,9 +434,11 @@ liberdade que, em princípio, poderia ser explorada.
 
 ---
 
-## Universo expandido: 8 → 40 ativos
+## Etapa histórica: universo expandido, 8 → 40 ativos
 
-`python expandir_pool.py` → `python funil_expandido.py` → `python backtest_expandido.py`
+Sequência histórica: `python expandir_pool.py` → `python funil_expandido.py` →
+`python backtest_expandido.py`. Hoje os dois últimos imprimem aviso de que a
+previsão já foi testada e de que o overlay não é resultado implementável.
 
 O pool de candidatos foi ampliado de 42 para **114** — a maior lacuna era
 commodities, que apareciam quase só como cesta (DBC). Petróleo, cobre, café e
@@ -353,7 +462,7 @@ Commit `88392ef`, anterior à existência de `backtest_expandido.py`:
 
 > `Sharpe_novo = 0,51 × √(11,3 / 7,0) = 0,65`
 
-### O resultado — todas as quatro combinações
+### Resultado antes das correções de carry, deriva e financiamento
 
 | | Sharpe | t | CAGR | Vol | Max DD |
 |---|---|---|---|---|---|
@@ -366,22 +475,24 @@ Commit `88392ef`, anterior à existência de `backtest_expandido.py`:
 mais interessante que um simples erro:
 
 - Para a **configuração base**, a previsão equivalente era 0,41 × 1,273 = 0,52.
-  O realizado foi **0,60** — a expansão entregou o que a teoria previa, e um
-  pouco mais.
+  O realizado naquela convenção foi **0,60**, compatível com a previsão; as
+  correções posteriores impedem tratá-lo como confirmação independente.
 - Para o **walk-forward**, a previsão era 0,65 e o realizado 0,48. **A adaptação
   de horizonte, que ajudava com 8 ativos, atrapalha com 40.**
 
 ### Por que o walk-forward deixou de ajudar
 
-A explicação econômica: **adaptar o horizonte e diversificar ativos são
-substitutos, não complementos.** Ambos servem para não depender de um único
+Uma hipótese econômica registrada naquela etapa é que **adaptar o horizonte e
+diversificar ativos podem ser substitutos.** Ambos servem para não depender de um único
 regime de tendência. Com 8 ativos, trocar de horizonte era a única defesa
 disponível contra tendências que encurtavam. Com 40 ativos espalhados por
 commodities, câmbios, juros e bolsas, sempre há algum mercado em tendência
 longa — a diversificação já faz esse trabalho, e a troca de horizonte vira
-giro extra sem ganho.
+giro extra sem ganho. A comparação é compatível com a hipótese, mas não a
+identifica causalmente.
 
-O drawdown confirma: piora de −21,6% (fixo) para −24,2% (walk-forward).
+O drawdown daquela comparação é compatível com a leitura: piora de −21,6%
+(fixo) para −24,2% (walk-forward).
 
 ### O controle de risco segurou
 
@@ -414,7 +525,7 @@ individuais capturam e uma cesta única dilui.
 num choque inflacionário específico, não é previsão de futuro. A fraqueza de
 2016–2020 continua lá, e piorou.
 
-### Robustez no universo de 40: 6 de 6 aprovados
+### Robustez histórica do overlay de 40: 6 de 6 aprovados
 
 `python robustez.py --universo 40`
 
@@ -427,9 +538,9 @@ num choque inflacionário específico, não é previsão de futuro. A fraqueza d
 | E | Jackknife | **REPROVADO** | **aprovado** |
 | F | Horizonte do sinal | aprovado | **aprovado** (4/4) |
 
-**As duas reprovações do universo de 8 foram corrigidas pela expansão.** Isso é
-consistente com a tese: as duas falhas eram sintomas de diversificação
-insuficiente.
+**Na convenção de overlay daquela etapa, as duas reprovações do universo de 8
+desapareceram com a expansão.** A auditoria de financiamento posterior reduz o
+placar do universo de 40 para 3 de 6, portanto esta tabela não é o veredito final.
 
 **C — sub-períodos.** Passou de 2/4 para 3/4:
 
@@ -492,10 +603,9 @@ emprestada e **pagar a taxa turca** — que chegou a 40–50% ao ano, contra 0�
 nos EUA. O preço à vista da lira caiu 18% ao ano e isso parecia lucro. O
 carrego que teríamos pago era da mesma ordem.
 
-Há um argumento teórico que fecha o caso: pela paridade descoberta de juros,
-moedas de juro alto se desvalorizam aproximadamente pelo diferencial. **O fato
-de a lira ter caído 18% ao ano é, ele mesmo, evidência de que o diferencial era
-dessa ordem.**
+A paridade **coberta** liga o diferencial de juros ao preço a termo. A paridade
+**descoberta** é uma hipótese sobre a desvalorização esperada, não uma identidade
+nem prova baseada no retorno realizado.
 
 ### A correção, com dados reais de juros
 
@@ -511,29 +621,46 @@ Séries do FRED (IMF/IFS). Cada par virou um índice de **retorno total**:
 | INR=X | +3,4% | −1,5% | −4,9 |
 | JPY=X | +1,8% | **+3,3%** | **+1,6** |
 
-A paridade de juros se confirma quase exatamente: a lira sai de +18% para
-−1,6%. O iene vai na direção **oposta** (+1,6%), porque os juros japoneses eram
-menores que os americanos — ficar comprado em USD/JPY *recebe* carrego.
+Com os proxies utilizados, a lira sai de +18% para −1,6%. O iene vai na direção
+**oposta** (+1,6%), porque os juros japoneses eram menores que os americanos —
+ficar comprado em USD/JPY *recebe* carrego. Isso é resultado do modelo de carry,
+não confirmação empírica de uma identidade econômica.
 
 <em>Limitação:</em> G10 (AUD, CAD, GBP, SEK, EUR) não tem série pública completa
 no FRED e ficou sem correção. O diferencial dessas moedas contra o dólar é de
 0–5 p.p., ordem de grandeza muito menor que o da lira, mas o erro residual
 existe e está declarado.
 
-### O RESULTADO FINAL — comparação justa
+### Resultado daquela etapa — proxy de carry, financiamento ainda uniforme
 
-| universo | sem carrego | **com carrego (correto)** |
+| universo | sem carrego | **com proxy de carry** |
 |---|---|---|
 | 8 ativos | 0,41 (t=1,88) | **0,36 (t=1,64)** |
 | **40 ativos** | 0,60 (t=2,78) | **0,50 (t=2,30)** |
 
-**A expansão do universo ajudou de verdade: 0,36 → 0,50.** E só a versão de 40
-ativos mantém significância estatística (t > 2).
+Estes são os números da etapa anterior. Após a auditoria do motor e do limite de
+preenchimento, o overlay de 40 ativos passa a Sharpe **0,48** e t ingênuo
+**2,20**. A auditoria posterior de
+financiamento mostra que esse número ainda soma CDI indevidamente às pernas de
+ETF: com o encargo explícito, o Sharpe cai para **0,13** e t IID para **0,59**.
+Assim, nem 0,50 nem 0,48 devem ser chamados de retorno implementável.
 
-### A previsão de diversificação se confirma nos dados limpos
+### Sensibilidade à publicação das taxas
 
-A metodologia registrada em `88392ef` era escalar o Sharpe pela raiz das
-apostas efetivas. Aplicada aos dados corrigidos:
+Sem vintages não é possível reconstruir a informação disponível em cada data.
+Como stress reproduzível, o carry já congelado no repositório foi deslocado em
+21 pregões, mantendo universo e parâmetros. O Sharpe do overlay passou de
+**0,476 para 0,466**, e o CAGR de **15,66% para 15,56%**. A magnitude observada
+é pequena neste teste, mas ele não substitui ALFRED nem prova ausência de
+revisões.
+
+### A previsão original não foi confirmada
+
+A previsão registrada em `88392ef` foi Sharpe 0,65 para o walk-forward de 40
+ativos. O realizado daquela etapa foi 0,48, fora da banda de ±0,10. Portanto a
+previsão **falhou**. Reaplicar depois a mesma fórmula a insumos corrigidos e
+compará-la com a amostra completa é uma verificação descritiva pós-hoc, não uma
+nova previsão independente.
 
 ```
 previsto = 0,36 × raiz(11,2 / 7,0) = 0,36 × 1,265 = 0,455
@@ -541,13 +668,12 @@ realizado                                        = 0,50
 erro                                             = +0,045
 ```
 
-Dentro da banda de ±0,10 que foi **declarada como "confirmada" antes de
-qualquer resultado existir**. O ganho de diversificação era real; o que estava
-errado era o instrumento, não a teoria.
+O valor pós-hoc ficou próximo, mas não autoriza a palavra “confirmada”. O teste
+pseudo-point-in-time anual (2016–2026) tem Sharpe 0,34 e mostra que parte do
+resultado depende da seleção com a amostra completa.
 
-<small class="note">Ressalva: a previsão original (0,65) usava o walk-forward
-sobre dados não corrigidos. O número acima é a mesma fórmula recalculada sobre
-a base limpa — a metodologia foi registrada antes, o insumo mudou.</small>
+<small class="note">A fórmula foi registrada antes; os novos insumos e a
+comparação não foram. Essa distinção é mantida explicitamente.</small>
 
 ### Concentração depois da correção
 
@@ -563,7 +689,7 @@ ela segue como maior contribuidora (+1,08% a.a. contra +1,92% antes). Mesmo sem
 nenhuma moeda, o universo de 40 rende 0,43 — ainda acima dos 0,36 do universo
 de 8.
 
-### Sub-períodos, corrigidos
+### Sub-períodos com proxy de carry, ainda sem financiamento dos ETFs
 
 | período | CAGR | Sharpe | CDI | |
 |---|---|---|---|---|

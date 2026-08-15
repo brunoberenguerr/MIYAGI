@@ -1,0 +1,41 @@
+ativo,tipo_serie,conclusao
+DBA,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+EFA,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+EWJ,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+EWT,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+GLD,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+IEF,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+VNQ,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+XLE,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+XLP,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+XLU,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+XLV,etf_adjusted_close,retorno total financiado; não é retorno excedente de futuro
+BZ=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+CC=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+CT=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+HE=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+HG=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+KC=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+LE=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+NG=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+OJ=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+PA=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+PL=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+SB=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+ZC=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+ZL=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+ZW=F,futuro_continuo_yahoo,roll e custo de rolagem não identificados
+BRL=X,fx_retorno_total_proxy,proxy de juros; falta vintage/lag de publicação
+INR=X,fx_retorno_total_proxy,proxy de juros; falta vintage/lag de publicação
+JPY=X,fx_retorno_total_proxy,proxy de juros; falta vintage/lag de publicação
+MXN=X,fx_retorno_total_proxy,proxy de juros; falta vintage/lag de publicação
+TRY=X,fx_retorno_total_proxy,proxy de juros; falta vintage/lag de publicação
+ZAR=X,fx_retorno_total_proxy,proxy de juros; falta vintage/lag de publicação
+AUDUSD=X,fx_spot,carrego cambial ausente
+CAD=X,fx_spot,carrego cambial ausente
+GBPUSD=X,fx_spot,carrego cambial ausente
+SEK=X,fx_spot,carrego cambial ausente
+^AXJO,indice_de_preco,dividendos e conversão cambial não modelados
+^BSESN,indice_de_preco,dividendos e conversão cambial não modelados
+^HSI,indice_de_preco,dividendos e conversão cambial não modelados
+^JKSE,indice_de_preco,dividendos e conversão cambial não modelados

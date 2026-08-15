@@ -1,0 +1,8 @@
+,valor
+inicio,2016-01-29 00:00:00
+fim,2026-07-16 00:00:00
+cagr,0.129411812301
+vol,0.105403227276
+sharpe,0.34279148965
+max_drawdown,-0.250072479643
+rotulo_metodologico,pseudo-point-in-time; dados sem vintage

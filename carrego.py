@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-MIYAGI — correção do carrego cambial (interest rate carry)
-===========================================================
+MIYAGI — proxy de carrego cambial (interest rate carry)
+=======================================================
 
 O ERRO QUE ESTE ARQUIVO CORRIGE
 -------------------------------
@@ -16,14 +16,13 @@ O preço à vista da lira caiu 18% ao ano. Parecia lucro de 18% ao ano. Mas o
 carrego que teríamos pago era da mesma ordem de grandeza — e, em vários anos,
 MAIOR que a desvalorização.
 
-Há um argumento teórico que fecha o caso: pela paridade descoberta de juros,
-moedas de juro alto se desvalorizam aproximadamente pelo diferencial de juros.
-O fato de a lira ter caído ~18% ao ano é, ele mesmo, evidência de que o
-diferencial era dessa ordem. Ganho e custo se cancelam quase por construção.
+A paridade COBERTA de juros liga o diferencial de juros ao preço a termo. A
+paridade DESCOBERTA é uma hipótese sobre a desvalorização esperada e não uma
+identidade; ela não é usada aqui como prova de retorno realizado.
 
-A CORREÇÃO
-----------
-Para cada par de câmbio, constrói-se um índice de RETORNO TOTAL:
+O PROXY
+-------
+Para cada par de câmbio, constrói-se um índice de RETORNO TOTAL APROXIMADO:
 
     retorno_total  =  retorno_do_preço  +  carrego
 
@@ -33,9 +32,9 @@ onde, para um par cotado como USD/XXX (quantos XXX por dólar):
 
 e para um par cotado como XXX/USD, o sinal se inverte.
 
-O sinal de momentum passa a ler o retorno TOTAL, não só o preço — que é o
-correto: na prática se negocia o contrato a termo, cujo preço já embute o
-carrego.
+O sinal de momentum passa a ler preço mais diferencial de taxas. Isso aproxima
+a economia de um contrato a termo, mas não reconstrói forwards negociáveis nem
+prova a paridade coberta com os retornos realizados.
 
 FONTE DOS JUROS
 ---------------
@@ -50,16 +49,19 @@ diferencial pequeno contra o dólar (0-5 p.p.), então o erro residual é de
 ordem muito menor que o da lira — mas existe.
 
 Taxas de política/redesconto são um proxy do custo real de financiamento, não
-o custo exato. A ordem de grandeza é o que importa aqui.
+o custo exato. As séries públicas também não têm vintages nesta extração e são
+alinhadas sem modelar o atraso de publicação. A ordem de grandeza é o que
+importa aqui; o resultado não deve ser chamado de carry "correto".
 """
 
 from __future__ import annotations
 
 import io
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 
 import pandas as pd
-import requests
 
 AQUI = Path(__file__).resolve().parent
 DIAS_UTEIS_ANO = 252
@@ -100,16 +102,17 @@ PARES = {
 def busca_fred(serie: str) -> pd.Series | None:
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={serie}"
     try:
-        r = requests.get(url, timeout=60)
-        if r.status_code != 200 or r.text.startswith("<"):
+        with urlopen(url, timeout=60) as resposta:  # noqa: S310 - domínio fixo FRED
+            texto = resposta.read().decode("utf-8")
+        if texto.startswith("<"):
             return None
-        df = pd.read_csv(io.StringIO(r.text))
+        df = pd.read_csv(io.StringIO(texto))
         df.columns = ["data", "valor"]
         df["data"] = pd.to_datetime(df["data"])
         df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
         s = df.dropna().set_index("data")["valor"].sort_index()
         return s if len(s) > 50 else None
-    except Exception:                                    # noqa: BLE001
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
         return None
 
 
@@ -126,7 +129,8 @@ def carrega_juros(calendario: pd.DatetimeIndex) -> tuple[dict, pd.DataFrame]:
         # conhecido -- inclusive para além do fim da série, o que é registrado
         # como limitação abaixo.
         alinhada = s.reindex(calendario.union(s.index)).ffill().reindex(calendario)
-        alinhada = alinhada.bfill()                      # antes do 1o dado
+        # Não fazemos bfill antes da primeira observação: isso aplicaria ao
+        # passado uma taxa que só existiu depois. Datas sem dado permanecem NaN.
         taxas[moeda] = alinhada / 100.0                  # % a.a. -> fração
         dias_extrapolados = int((calendario > fim_dado).sum())
         cobertura.append({
@@ -139,9 +143,9 @@ def carrega_juros(calendario: pd.DatetimeIndex) -> tuple[dict, pd.DataFrame]:
 
 
 def aplica_carrego(precos: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[str]]:
-    """Substitui os preços de câmbio por índices de RETORNO TOTAL.
+    """Substitui os preços por índices com proxy de retorno total.
 
-    Devolve (painel corrigido, pares corrigidos, pares sem dado).
+    Devolve (painel com proxy, pares tratados, pares sem dado).
     """
     taxas, cobertura = carrega_juros(pd.DatetimeIndex(precos.index))
 
@@ -169,7 +173,7 @@ def aplica_carrego(precos: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[
         else:                                   # par cotado como XXX/USD
             carrego_anual = r_est - r_usd
 
-        ret_preco = precos[par].pct_change()
+        ret_preco = precos[par].pct_change(fill_method=None)
         ret_total = ret_preco + carrego_anual / DIAS_UTEIS_ANO
 
         # Reconstrói um índice de preço a partir do retorno total, para que o
@@ -179,8 +183,18 @@ def aplica_carrego(precos: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[
         if base.empty:
             sem_dado.append(par)
             continue
-        indice = (1 + ret_total.fillna(0.0)).cumprod() * float(base.iloc[0])
-        indice[precos[par].isna()] = pd.NA
+        # O índice só começa quando preço e juros estão simultaneamente
+        # disponíveis. Não supomos carrego zero onde a taxa não existe.
+        primeira_valida = ret_total.first_valid_index()
+        if primeira_valida is None:
+            sem_dado.append(par)
+            continue
+        trecho = ret_total.loc[primeira_valida:]
+        indice = pd.Series(pd.NA, index=precos.index, dtype="Float64")
+        indice.loc[primeira_valida:] = (
+            (1 + trecho.fillna(0.0)).cumprod() * float(base.loc[:primeira_valida].iloc[-1])
+        )
+        indice[ret_total.isna()] = pd.NA
         saida[par] = indice.astype(float)
         corrigidos.append(par)
 
@@ -189,16 +203,19 @@ def aplica_carrego(precos: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[
 
 def main() -> None:
     print("=" * 78)
-    print("CORREÇÃO DO CARREGO CAMBIAL")
+    print("PROXY DE CARREGO CAMBIAL")
     print("=" * 78)
     print("O backtest usava só a variação do preço à vista. Para câmbio isso")
     print("ignora os juros das duas pontas -- erro enorme em moedas de juro alto.\n")
+    print("ATENÇÃO: esta rotina baixa a versão atualmente publicada pelo FRED.")
+    print("Ela não cria vintages nem modela lag de publicação; o CSV versionado")
+    print("é a entrada congelada para reproduzir os resultados da auditoria.\n")
 
     precos = pd.read_csv(AQUI / "dados" / "pool_expandido.csv",
                          index_col=0, parse_dates=True)
     corrigido, ok, faltando = aplica_carrego(precos)
 
-    print(f"PARES CORRIGIDOS ({len(ok)}): {', '.join(ok)}")
+    print(f"PARES COM PROXY ({len(ok)}): {', '.join(ok)}")
     print(f"PARES SEM DADO DE JUROS ({len(faltando)}): {', '.join(faltando)}")
     print("  (G10 majoritariamente -- diferencial pequeno contra o dólar,")
     print("   erro residual de ordem muito menor que o da lira)\n")
